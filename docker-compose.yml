@@ -1,0 +1,9 @@
+services:
+  fred-query:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - ./models:/app/models  # Mount local LLM files

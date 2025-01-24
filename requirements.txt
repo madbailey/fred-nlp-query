@@ -1,0 +1,6 @@
+fredapi==0.5.2
+langchain-core==0.3.31
+python-dateutil==2.9.0.post0
+streamlit==1.32.0
+llama-cpp-python==0.3.6
+python-dotenv==1.0.0
