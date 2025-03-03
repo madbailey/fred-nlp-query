@@ -40,19 +40,80 @@ MAX_CALLS_PER_MINUTE = 10
 RATE_LIMIT_WINDOW = 60  # seconds
 
 def init_llm():
-    api_key = os.getenv("GOOGLE_API_KEY")
-    genai.configure(api_key=api_key)
+    """Initialize the LLM - either local Llama or Gemini based on configuration"""
+    use_local_llm = os.getenv("USE_LOCAL_LLM", "true").lower() == "true"
     
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro",
-        google_api_key=api_key,
-        temperature=0.1,
-        max_output_tokens=1000,  # Reduced from 2000 to conserve quota
-        cache=True,
-        retry_on_failure=False,  # Changed to False to better handle rate limits manually
-        convert_system_message_to_human=True,
-    )
-    return llm
+    if use_local_llm:
+        from langchain_community.llms import LlamaCpp
+        
+        # Path to your Llama model
+        model_path = os.getenv("LLAMA_MODEL_PATH", "models/capybarahermes-2.5-mistral-7b.Q4_K_M.gguf")
+        
+        # Initialize Llama with appropriate settings
+        llm = LlamaCpp(
+            model_path=model_path,
+            temperature=0.1,
+            max_tokens=1000,
+            n_ctx=2048,
+            n_batch=512,
+            n_gpu_layers=-1,  # Direct parameter instead of in model_kwargs
+            verbose=True
+        )
+        
+        # Wrap as chat model
+        from langchain.chat_models.base import BaseChatModel
+        from langchain.schema import AIMessage, HumanMessage, SystemMessage
+        from langchain_core.output_parsers import StrOutputParser
+        from langchain_core.prompts import ChatPromptTemplate
+        
+        # Create a chat prompt template with Llama-specific formatting
+        chat_prompt = ChatPromptTemplate.from_messages([
+            ("system", "{system}"),
+            ("human", "{human}")
+        ])
+        
+        # Create a chat model chain
+        llm_chain = chat_prompt | llm | StrOutputParser()
+        
+        # Simple wrapper to make it compatible with the agent
+        class LlamaChatModel(BaseChatModel):
+            def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+                system_message = next((m.content for m in messages if isinstance(m, SystemMessage)), "")
+                human_messages = [m.content for m in messages if isinstance(m, HumanMessage)]
+                human_message = human_messages[-1] if human_messages else ""
+                
+                response = llm_chain.invoke({
+                    "system": system_message,
+                    "human": human_message
+                })
+                
+                from langchain_core.messages import AIMessage
+                from langchain_core.language_models.chat_models import ChatResult, ChatGeneration
+                
+                msg = AIMessage(content=response)
+                
+                return ChatResult(generations=[ChatGeneration(message=msg)])
+            
+            @property
+            def _llm_type(self) -> str:
+                return "llama-chat"
+                
+        return LlamaChatModel()
+    else:
+        # Fall back to Gemini if local LLM is disabled
+        api_key = os.getenv("GOOGLE_API_KEY")
+        genai.configure(api_key=api_key)
+        
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-pro",
+            google_api_key=api_key,
+            temperature=0.1,
+            max_output_tokens=1000,
+            cache=True,
+            retry_on_failure=False,
+            convert_system_message_to_human=True,
+        )
+        return llm
 
 # Create agent with more constraints
 def create_agent(llm):
