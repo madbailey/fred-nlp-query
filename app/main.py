@@ -22,6 +22,7 @@ langchain.llm_cache = InMemoryCache()
 
 from tools import fred_tools
 from composite_tools import fred_composite_tools
+from enhanced_tools import enhanced_tools  # Import the enhanced tools
 from prompts import SYSTEM_PROMPT  # Import the updated system prompt
 
 # Initialize session state
@@ -57,8 +58,8 @@ def init_llm():
 def create_agent(llm):
     from langchain.agents import AgentType, initialize_agent
     
-    # Combine all tools
-    all_tools = fred_tools + fred_composite_tools
+    # Combine all tools including enhanced tools
+    all_tools = fred_tools + fred_composite_tools + enhanced_tools
     
     # Create the agent using the standard initialize_agent function
     agent = initialize_agent(
@@ -100,7 +101,30 @@ def check_rate_limit():
     return True
 
 # Streamlit UI
-st.title("FRED Economic Data Assistant")
+def load_css():
+    st.markdown("""
+        <style>
+            .economic-card {
+                padding: 20px;
+                border-radius: 10px;
+                background-color: white;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
+            }
+            .chart-container {
+                background-color: white;
+                padding: 15px;
+                border-radius: 10px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+# Use at top of app
+load_css()
+
+# Main App UI
+st.title("FRED Data Finder")
 st.write("Ask questions about economic data, and I'll help you find and visualize it!")
 
 # Initialize LLM and agent (only once)

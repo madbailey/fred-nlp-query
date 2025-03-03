@@ -15,5 +15,8 @@ RUN pip install --upgrade pip && \
 # Copy app code
 COPY ./app/* /app/
 
+# Explicitly copy the .streamlit directory
+COPY ./.streamlit /app/.streamlit
+
 # Launch Streamlit
 CMD ["streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0"]
