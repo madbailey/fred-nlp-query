@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 langchain.llm_cache = InMemoryCache()
 
 from tools import fred_tools
-from prompts import SYSTEM_PROMPT
+from composite_tools import fred_composite_tools
+from prompts import SYSTEM_PROMPT  # Import the updated system prompt
 
 # Initialize session state
 if "messages" not in st.session_state:
@@ -42,7 +43,7 @@ def init_llm():
     genai.configure(api_key=api_key)
     
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.0-pro",
+        model="gemini-1.5-pro",
         google_api_key=api_key,
         temperature=0.1,
         max_output_tokens=1000,  # Reduced from 2000 to conserve quota
@@ -56,15 +57,18 @@ def init_llm():
 def create_agent(llm):
     from langchain.agents import AgentType, initialize_agent
     
-    # Create the agent with maximal caching and fewer iterations
+    # Combine all tools
+    all_tools = fred_tools + fred_composite_tools
+    
+    # Create the agent using the standard initialize_agent function
     agent = initialize_agent(
-        tools=fred_tools,
+        tools=all_tools,
         llm=llm,
         agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
         verbose=True,
         handle_parsing_errors=True,
-        max_iterations=5,  # Limit maximum iterations to avoid excessive API calls
-        early_stopping_method="generate"  # Stop if model can't decide on next action
+        max_iterations=5,  # Limit maximum iterations
+        early_stopping_method="generate"
     )
     
     return agent
