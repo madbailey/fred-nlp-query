@@ -11,6 +11,7 @@ from langchain.cache import InMemoryCache
 import langchain
 import time
 from langchain_core.runnables.config import RunnableConfig
+from langchain_community.llms import LlamaCpp
 import logging
 
 # Configure logging
@@ -44,7 +45,6 @@ def init_llm():
     use_local_llm = os.getenv("USE_LOCAL_LLM", "true").lower() == "true"
     
     if use_local_llm:
-        from langchain_community.llms import LlamaCpp
         
         # Path to your Llama model
         model_path = os.getenv("LLAMA_MODEL_PATH", "models/capybarahermes-2.5-mistral-7b.Q4_K_M.gguf")
