@@ -5,6 +5,8 @@ services:
       - "8501:8501"
     env_file:
       - .env
+    environment:
+    - CUDA_VISIBLE_DEVICES=0
     deploy:
       resources:
         reservations:
