@@ -107,15 +107,17 @@ def load_css():
             .economic-card {
                 padding: 20px;
                 border-radius: 10px;
-                background-color: white;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                background-color: #f5f5f0; /* New secondaryBackgroundColor */
+                /* Consider a more subtle border or no shadow for XKCD style */
+                border: 1px solid #dddddd; /* Example border */
                 margin-bottom: 20px;
             }
             .chart-container {
-                background-color: white;
+                background-color: #f5f5f0; /* New secondaryBackgroundColor */
                 padding: 15px;
                 border-radius: 10px;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+                /* Consider a more subtle border or no shadow */
+                border: 1px solid #dddddd; /* Example border */
             }
         </style>
     """, unsafe_allow_html=True)
@@ -124,8 +126,8 @@ def load_css():
 load_css()
 
 # Main App UI
-st.title("FRED Data Finder")
-st.write("Ask questions about economic data, and I'll help you find and visualize it!")
+st.title("FRED BUDDY")
+st.write("Hi, I'm FRED BUDDY! Ask me questions about economic data, and I'll help you find and visualize it.")
 
 # Initialize LLM and agent (only once)
 if "agent" not in st.session_state:

@@ -1,5 +1,5 @@
 services:
-  fred-query:
+  fred-buddy:
     build: .
     ports:
       - "8501:8501"

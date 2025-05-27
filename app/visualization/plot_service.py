@@ -14,9 +14,14 @@ from app.services.fred_service import FredService # For recession data
 logger = logging.getLogger(__name__)
 
 # Apply base styling
-plt.style.use('seaborn-v0_8-whitegrid')
-mpl.rcParams['font.family'] = 'sans-serif'
-mpl.rcParams['font.sans-serif'] = ['Arial', 'Helvetica', 'DejaVu Sans'] # More common fonts
+# plt.style.use('seaborn-v0_8-whitegrid') # Original style
+plt.xkcd() # Apply XKCD style
+
+# Set fonts suitable for XKCD style
+# Note: 'Humor Sans' and 'Comic Neue' are ideal but might not be installed.
+# 'Comic Sans MS' is a common fallback. 'cursive' or 'fantasy' are generic.
+mpl.rcParams['font.family'] = 'xkcd' # Often set by plt.xkcd() itself, but good to be explicit
+mpl.rcParams['font.sans-serif'] = ['Humor Sans', 'Comic Neue', 'Comic Sans MS', 'cursive', 'fantasy']
 mpl.rcParams['axes.labelsize'] = 11
 mpl.rcParams['axes.titlesize'] = 14
 mpl.rcParams['xtick.labelsize'] = 10
