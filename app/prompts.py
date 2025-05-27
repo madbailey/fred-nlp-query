@@ -19,8 +19,8 @@ FOR STATE COMPARISONS:
 - Use the specialized comparison tools:
   1. compare_state_gdp: For comparing GDP between states
      Example: compare_state_gdp(state1="California", state2="Texas", start_date="2010-01-01")
-  2. compare_states_vs_us: For comparing states against the US average
-     Example: compare_states_vs_us(states=["Florida", "Georgia"], indicator="unemployment", start_date="2010-01-01")
+  2. compare_states_vs_us: For comparing any number of states against the US average
+     Example: compare_states_vs_us(states=["Florida", "Georgia", "Texas"], indicator="unemployment", start_date="2010-01-01")
 
 FOR OTHER DATA NEEDS:
 - search_fred_series: Search for economic data series

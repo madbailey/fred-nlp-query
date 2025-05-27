@@ -111,7 +111,7 @@ indicator_patterns = {
         'units': 'Percent'
     },
     'housing': {
-        'state_pattern': '{code}HPI',
+        'state_pattern': '{code}STHPI',
         'us_pattern': 'USSTHPI',
         'title': 'House Price Index',
         'units': 'Index'
@@ -582,7 +582,7 @@ state_gdp_comparison_tool = StructuredTool.from_function(
 states_vs_us_tool = StructuredTool.from_function(
     func=compare_states_vs_us,
     name="compare_states_vs_us",
-    description="Compare economic indicators for multiple states against the US national average",
+    description="Compare economic indicators for multiple states against the US national average. Supports indicators: 'gdp', 'unemployment', 'housing', 'nonfarm_payrolls', 'personal_income'. Can handle 2+ states in a single comparison.",
     args_schema=StatesVsUSComparisonInput
 )
 

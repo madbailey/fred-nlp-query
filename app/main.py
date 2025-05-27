@@ -44,7 +44,7 @@ def init_llm():
     genai.configure(api_key=api_key)
     
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro",
+        model="gemini-2.0-flash",
         google_api_key=api_key,
         temperature=0.1,
         max_output_tokens=1000,  # Reduced from 2000 to conserve quota
