@@ -1,0 +1,174 @@
+from __future__ import annotations
+
+from datetime import date
+import unittest
+
+from fastapi.testclient import TestClient
+
+from fred_query.api.app import (
+    app,
+    get_natural_language_query_service,
+    get_state_gdp_comparison_service,
+)
+from fred_query.schemas.analysis import (
+    AnalysisResult,
+    QueryResponse,
+    RoutedQueryResponse,
+    RoutedQueryStatus,
+    SeriesAnalysis,
+)
+from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace
+from fred_query.schemas.intent import ComparisonMode, Geography, GeographyType, QueryIntent, TaskType, TransformType
+from fred_query.schemas.resolved_series import ResolvedSeries, SeriesSearchMatch
+
+
+def _build_query_response() -> QueryResponse:
+    california = ResolvedSeries(
+        series_id="CARGSP",
+        title="Real GDP: California",
+        geography="California",
+        indicator="real_gdp",
+        units="Millions of Chained 2017 Dollars",
+        frequency="A",
+        seasonal_adjustment="NSA",
+        resolution_reason="fixture",
+        source_url="https://fred.stlouisfed.org/series/CARGSP",
+    )
+    texas = ResolvedSeries(
+        series_id="TXRGSP",
+        title="Real GDP: Texas",
+        geography="Texas",
+        indicator="real_gdp",
+        units="Millions of Chained 2017 Dollars",
+        frequency="A",
+        seasonal_adjustment="NSA",
+        resolution_reason="fixture",
+        source_url="https://fred.stlouisfed.org/series/TXRGSP",
+    )
+    intent = QueryIntent(
+        task_type=TaskType.STATE_GDP_COMPARISON,
+        geographies=[
+            Geography(name="California", geography_type=GeographyType.STATE),
+            Geography(name="Texas", geography_type=GeographyType.STATE),
+        ],
+        comparison_mode=ComparisonMode.STATE_VS_STATE,
+        start_date=date(2019, 1, 1),
+        transform=TransformType.NORMALIZED_INDEX,
+        normalization=True,
+    )
+    return QueryResponse(
+        intent=intent,
+        analysis=AnalysisResult(
+            series_results=[
+                SeriesAnalysis(series=california, latest_value=1.0, latest_observation_date=date(2024, 1, 1)),
+                SeriesAnalysis(series=texas, latest_value=1.0, latest_observation_date=date(2024, 1, 1)),
+            ],
+            coverage_start=date(2019, 1, 1),
+            coverage_end=date(2024, 1, 1),
+            latest_observation_date=date(2024, 1, 1),
+        ),
+        chart=ChartSpec(
+            title="Real GDP Comparison: California vs Texas",
+            subtitle="Fixture",
+            x_axis=AxisSpec(title="Date"),
+            y_axis=AxisSpec(title="Index (Base = 100)"),
+            series=[
+                ChartTrace(name="California", x=[date(2019, 1, 1)], y=[100.0]),
+                ChartTrace(name="Texas", x=[date(2019, 1, 1)], y=[100.0]),
+            ],
+            source_note="Source: FRED, Federal Reserve Bank of St. Louis",
+        ),
+        answer_text="Completed comparison.",
+    )
+
+
+class _FakeNaturalLanguageQueryService:
+    def __init__(self, response: RoutedQueryResponse) -> None:
+        self.response = response
+
+    def ask(self, query: str) -> RoutedQueryResponse:
+        return self.response
+
+
+class _FakeStateGDPComparisonService:
+    def compare(self, **_: object) -> QueryResponse:
+        return _build_query_response()
+
+
+class APITest(unittest.TestCase):
+    def setUp(self) -> None:
+        app.dependency_overrides.clear()
+        self.client = TestClient(app)
+
+    def tearDown(self) -> None:
+        app.dependency_overrides.clear()
+
+    def test_health(self) -> None:
+        response = self.client.get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_ask_completed(self) -> None:
+        routed = RoutedQueryResponse(
+            status=RoutedQueryStatus.COMPLETED,
+            intent=_build_query_response().intent,
+            answer_text="Completed comparison.",
+            query_response=_build_query_response(),
+        )
+        app.dependency_overrides[get_natural_language_query_service] = lambda: _FakeNaturalLanguageQueryService(routed)
+
+        response = self.client.post("/api/ask", json={"query": "Compare California and Texas GDP"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
+
+    def test_ask_clarification(self) -> None:
+        routed = RoutedQueryResponse(
+            status=RoutedQueryStatus.NEEDS_CLARIFICATION,
+            intent=QueryIntent(
+                task_type=TaskType.SINGLE_SERIES_LOOKUP,
+                clarification_needed=True,
+                clarification_question="Do you mean CPI or PCE inflation?",
+            ),
+            answer_text="Do you mean CPI or PCE inflation?",
+            candidate_series=[
+                SeriesSearchMatch(
+                    series_id="CPIAUCSL",
+                    title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                    source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+                )
+            ],
+        )
+        app.dependency_overrides[get_natural_language_query_service] = lambda: _FakeNaturalLanguageQueryService(routed)
+
+        response = self.client.post("/api/ask", json={"query": "Show inflation"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "needs_clarification")
+        self.assertEqual(payload["candidate_series"][0]["series_id"], "CPIAUCSL")
+
+    def test_compare_state_gdp(self) -> None:
+        app.dependency_overrides[get_state_gdp_comparison_service] = lambda: _FakeStateGDPComparisonService()
+
+        response = self.client.post(
+            "/api/compare/state-gdp",
+            json={
+                "state1": "California",
+                "state2": "Texas",
+                "start_date": "2019-01-01",
+                "normalize": True,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["answer_text"], "Completed comparison.")
+        self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
+
+
+if __name__ == "__main__":
+    unittest.main()
