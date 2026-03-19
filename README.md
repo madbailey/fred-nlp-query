@@ -14,6 +14,7 @@ Current implementation:
 
 - `src/fred_query/` contains the new typed backend package.
 - The first deterministic flow is implemented for state real GDP comparison.
+- FastAPI now exposes the backend through `/health`, `/api/ask`, and `/api/compare/state-gdp`.
 - `tests/` covers transforms, the direct FRED client, and the California-vs-Texas comparison path.
 
 Verification:
@@ -28,6 +29,30 @@ python -m venv .venv
 python -m pip install -U pip
 python -m pip install -e .
 fred-query compare-state-gdp --state1 California --state2 Texas --start-date 2019-01-01
+```
+
+Run the FastAPI app locally:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -U pip
+python -m pip install -e .
+uvicorn fred_query.api.app:app --reload
+```
+
+Example API calls:
+
+```powershell
+Invoke-RestMethod -Method Get -Uri http://127.0.0.1:8000/health
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/ask -ContentType "application/json" -Body '{"query":"Show me the unemployment rate since 2020"}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/compare/state-gdp -ContentType "application/json" -Body '{"state1":"California","state2":"Texas","start_date":"2019-01-01","normalize":true}'
+```
+
+Run the containerized API:
+
+```powershell
+docker compose up --build
 ```
 
 Without installing the package:
