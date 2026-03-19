@@ -4,7 +4,15 @@ from datetime import date
 from types import SimpleNamespace
 import unittest
 
-from fred_query.schemas.intent import ComparisonMode, Geography, GeographyType, QueryIntent, TaskType, TransformType
+from fred_query.schemas.intent import (
+    ComparisonMode,
+    CrossSectionScope,
+    Geography,
+    GeographyType,
+    QueryIntent,
+    TaskType,
+    TransformType,
+)
 from fred_query.services.openai_parser_service import OpenAIIntentParser
 
 
@@ -75,6 +83,54 @@ class OpenAIIntentParserTest(unittest.TestCase):
 
         self.assertTrue(parsed.clarification_needed)
         self.assertEqual(parsed.clarification_target_index, 0)
+
+    def test_cross_section_parser_infers_state_scope(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.CROSS_SECTION,
+            indicators=["gdp"],
+            search_text="real gdp",
+        )
+        parser = OpenAIIntentParser(
+            api_key="test-key",
+            client=_FakeOpenAIClient(intent),
+        )
+
+        parsed = parser.parse("Which state has the highest GDP?")
+
+        self.assertEqual(parsed.cross_section_scope, CrossSectionScope.STATES)
+        self.assertTrue(parsed.sort_descending)
+
+    def test_cross_section_parser_flips_sort_for_bottom_queries(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.CROSS_SECTION,
+            indicators=["unemployment rate"],
+            search_text="unemployment rate",
+        )
+        parser = OpenAIIntentParser(
+            api_key="test-key",
+            client=_FakeOpenAIClient(intent),
+        )
+
+        parsed = parser.parse("Which state has the lowest unemployment rate?")
+
+        self.assertFalse(parsed.sort_descending)
+
+    def test_point_in_time_single_series_is_upgraded_to_cross_section(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.SINGLE_SERIES_LOOKUP,
+            indicators=["inflation"],
+            search_text="inflation",
+            observation_date=date(2023, 1, 1),
+        )
+        parser = OpenAIIntentParser(
+            api_key="test-key",
+            client=_FakeOpenAIClient(intent),
+        )
+
+        parsed = parser.parse("What was inflation in January 2023?")
+
+        self.assertEqual(parsed.task_type, TaskType.CROSS_SECTION)
+        self.assertEqual(parsed.cross_section_scope, CrossSectionScope.SINGLE_SERIES)
 
 
 if __name__ == "__main__":

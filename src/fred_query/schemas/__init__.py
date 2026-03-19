@@ -8,7 +8,15 @@ from fred_query.schemas.analysis import (
     SeriesAnalysis,
 )
 from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace, DateSpanAnnotation, LineStyle
-from fred_query.schemas.intent import ComparisonMode, Geography, GeographyType, QueryIntent, TaskType, TransformType
+from fred_query.schemas.intent import (
+    ComparisonMode,
+    CrossSectionScope,
+    Geography,
+    GeographyType,
+    QueryIntent,
+    TaskType,
+    TransformType,
+)
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata, SeriesSearchMatch
 
 __all__ = [
@@ -17,6 +25,7 @@ __all__ = [
     "ChartSpec",
     "ChartTrace",
     "ComparisonMode",
+    "CrossSectionScope",
     "DateSpanAnnotation",
     "DerivedMetric",
     "Geography",

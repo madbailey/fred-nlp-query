@@ -126,6 +126,8 @@ class FREDClient:
         *,
         frequency: str | None = None,
         aggregation_method: str | None = None,
+        limit: int | None = None,
+        sort_order: str | None = None,
     ) -> list[ObservationPoint]:
         params: dict[str, Any] = {"series_id": series_id}
         if start_date is not None:
@@ -136,6 +138,10 @@ class FREDClient:
             params["frequency"] = frequency
         if aggregation_method:
             params["aggregation_method"] = aggregation_method
+        if limit is not None:
+            params["limit"] = limit
+        if sort_order:
+            params["sort_order"] = sort_order
 
         payload = self._request("series/observations", params=params)
         observations: list[ObservationPoint] = []

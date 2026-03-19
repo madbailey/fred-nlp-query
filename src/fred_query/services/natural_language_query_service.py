@@ -7,6 +7,7 @@ from fred_query.schemas.analysis import RoutedQueryResponse, RoutedQueryStatus
 from fred_query.schemas.resolved_series import SeriesSearchMatch
 from fred_query.schemas.intent import TaskType
 from fred_query.services.comparison_service import StateGDPComparisonService
+from fred_query.services.cross_section_service import CrossSectionService
 from fred_query.services.fred_client import FREDClient
 from fred_query.services.openai_parser_service import OpenAIIntentParser
 from fred_query.services.relationship_service import RelationshipAnalysisService
@@ -81,12 +82,14 @@ class NaturalLanguageQueryService:
         parser: OpenAIIntentParser,
         fred_client: FREDClient,
         state_gdp_service: StateGDPComparisonService | None = None,
+        cross_section_service: CrossSectionService | None = None,
         single_series_service: SingleSeriesLookupService | None = None,
         relationship_service: RelationshipAnalysisService | None = None,
     ) -> None:
         self.parser = parser
         self.fred_client = fred_client
         self.state_gdp_service = state_gdp_service or StateGDPComparisonService(fred_client)
+        self.cross_section_service = cross_section_service or CrossSectionService(fred_client)
         self.single_series_service = single_series_service or SingleSeriesLookupService(fred_client)
         self.relationship_service = relationship_service or RelationshipAnalysisService(fred_client)
 
@@ -357,6 +360,15 @@ class NaturalLanguageQueryService:
                 query_response=query_response,
             )
 
+        if intent.task_type == TaskType.CROSS_SECTION:
+            query_response = self.cross_section_service.analyze(intent)
+            return RoutedQueryResponse(
+                status=RoutedQueryStatus.COMPLETED,
+                intent=intent,
+                answer_text=query_response.answer_text,
+                query_response=query_response,
+            )
+
         if intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS):
             query_response = self.relationship_service.analyze(intent)
             return RoutedQueryResponse(
@@ -371,7 +383,7 @@ class NaturalLanguageQueryService:
             intent=intent,
             answer_text=(
                 "The parser understood the request, but there is no deterministic execution path for it yet. "
-                "Right now the live implementation supports state GDP comparisons, single-series lookups, and "
-                "pairwise non-state relationship analysis."
+                "Right now the live implementation supports state GDP comparisons, point-in-time cross sections, "
+                "single-series lookups, and pairwise non-state relationship analysis."
             ),
         )
