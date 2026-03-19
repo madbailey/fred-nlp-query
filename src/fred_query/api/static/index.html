@@ -26,8 +26,8 @@
         </header>
 
         <section class="query-panel">
-            <div class="session-row">
-                <p id="session-summary" class="session-summary">Start a query to create a conversation with follow-up memory.</p>
+            <div id="session-row" class="session-row hidden">
+                <p id="session-summary" class="session-summary"></p>
                 <button id="reset-session-button" class="ghost-button" type="button">New conversation</button>
             </div>
             <form id="query-form" class="query-form">
@@ -67,19 +67,21 @@
             <div id="error-banner" class="error-banner hidden" role="alert"></div>
         </section>
 
+        <section id="conversation-thread" class="conversation-thread hidden"></section>
+
         <section id="results" class="results hidden">
+            <article class="panel answer-panel">
+                <p id="answer-text" class="answer-text"></p>
+                <div id="warning-list" class="warning-list"></div>
+                <details id="intent-details" class="intent-details">
+                    <summary class="intent-toggle">Query details</summary>
+                    <dl id="intent-summary" class="intent-summary"></dl>
+                </details>
+            </article>
+
             <article id="chart-panel" class="panel chart-panel hidden">
                 <div id="chart" class="chart"></div>
                 <p id="source-note" class="source-note"></p>
-            </article>
-
-            <article class="panel answer-panel">
-                <div class="panel-heading">
-                    <h2 id="answer-heading">Analysis</h2>
-                </div>
-                <p id="answer-text" class="answer-text"></p>
-                <dl id="intent-summary" class="intent-summary"></dl>
-                <div id="warning-list" class="warning-list"></div>
             </article>
 
             <article id="metrics-panel" class="panel hidden">

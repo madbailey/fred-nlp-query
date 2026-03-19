@@ -2,7 +2,9 @@ const queryForm = document.getElementById("query-form");
 const queryInput = document.getElementById("query-input");
 const submitButton = document.getElementById("submit-button");
 const resetSessionButton = document.getElementById("reset-session-button");
+const sessionRow = document.getElementById("session-row");
 const sessionSummary = document.getElementById("session-summary");
+const suggestionsContainer = document.querySelector(".suggestions");
 const suggestionButtons = Array.from(document.querySelectorAll(".suggestion"));
 const clarificationInline = document.getElementById("clarification-inline");
 const clarificationQuestion = document.getElementById("clarification-question");
@@ -12,8 +14,8 @@ const statusRow = document.getElementById("status-row");
 const statusPill = document.getElementById("status-pill");
 const statusText = document.getElementById("status-text");
 const errorBanner = document.getElementById("error-banner");
+const conversationThread = document.getElementById("conversation-thread");
 const results = document.getElementById("results");
-const answerHeading = document.getElementById("answer-heading");
 const answerText = document.getElementById("answer-text");
 const intentSummary = document.getElementById("intent-summary");
 const warningList = document.getElementById("warning-list");
@@ -26,16 +28,66 @@ const seriesPanel = document.getElementById("series-panel");
 const seriesGrid = document.getElementById("series-grid");
 
 const SESSION_STORAGE_KEY = "fred-query-session-id";
+const SESSION_HISTORY_KEY = "fred-query-history";
 
 let pendingClarification = null;
 let selectedClarificationSeriesId = null;
 let activeSessionId = loadStoredSessionId();
+let conversationHistory = loadStoredHistory();
 
 function loadStoredSessionId() {
     try {
         return window.sessionStorage.getItem(SESSION_STORAGE_KEY);
     } catch {
         return null;
+    }
+}
+
+function loadStoredHistory() {
+    try {
+        const raw = window.sessionStorage.getItem(SESSION_HISTORY_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveHistory() {
+    try {
+        window.sessionStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(conversationHistory));
+    } catch {
+        return;
+    }
+}
+
+function truncateToFirstSentence(text, maxLength = 160) {
+    if (!text) {
+        return "";
+    }
+
+    const sentenceEnd = text.search(/[.!?]\s/);
+    if (sentenceEnd !== -1 && sentenceEnd < maxLength) {
+        return text.slice(0, sentenceEnd + 1);
+    }
+
+    if (text.length <= maxLength) {
+        return text;
+    }
+
+    return `${text.slice(0, maxLength).trimEnd()}\u2026`;
+}
+
+function addToHistory(query, answerSnippet) {
+    conversationHistory.push({ query, answer: truncateToFirstSentence(answerSnippet) });
+    saveHistory();
+}
+
+function clearHistory() {
+    conversationHistory = [];
+    try {
+        window.sessionStorage.removeItem(SESSION_HISTORY_KEY);
+    } catch {
+        return;
     }
 }
 
@@ -52,14 +104,21 @@ function setActiveSessionId(sessionId) {
     }
 }
 
-function updateSessionSummary() {
-    if (!sessionSummary) {
-        return;
+function updateSessionUI() {
+    const hasSession = conversationHistory.length > 0;
+    const hero = document.querySelector(".hero");
+
+    setHidden(sessionRow, !hasSession);
+    if (hasSession) {
+        const lastQuery = conversationHistory[conversationHistory.length - 1].query;
+        sessionSummary.textContent = `Following up on: ${lastQuery}`;
+        queryInput.placeholder = "Ask a follow-up, e.g. \u201CNow show me year-over-year change\u201D or \u201CHow about since 2015?\u201D";
+    } else {
+        queryInput.placeholder = "e.g. What is the relationship between Brent crude oil prices and inflation?";
     }
 
-    sessionSummary.textContent = activeSessionId
-        ? "Conversation memory is active. Follow-up prompts reuse the last resolved context."
-        : "Start a query to create a conversation with follow-up memory.";
+    hero.classList.toggle("compact", hasSession);
+    setHidden(suggestionsContainer, hasSession);
 }
 
 function setHidden(element, hidden) {
@@ -346,29 +405,11 @@ function renderSeriesResults(seriesResults) {
                         </div>
                         <h3>${escapeHtml(series.title)}</h3>
                     </header>
+                    <div class="series-headline">
+                        <p class="series-headline-value">${escapeHtml(formatValue(item.latest_value))} <span style="font-size:0.72rem;font-weight:400;color:var(--muted)">${escapeHtml(series.units)}</span></p>
+                        <p class="series-headline-date">as of ${escapeHtml(formatDate(item.latest_observation_date))}</p>
+                    </div>
                     <div class="metric-list">
-                        <div class="metric-row">
-                            <span class="metric-label">Geography</span>
-                            <span class="metric-value">${escapeHtml(series.geography)}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Latest value</span>
-                            <span class="metric-value">${escapeHtml(formatValue(item.latest_value))}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Latest date</span>
-                            <span class="metric-value">${escapeHtml(formatDate(item.latest_observation_date))}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Units</span>
-                            <span class="metric-value">${escapeHtml(series.units)}</span>
-                        </div>
-                        ${item.analysis_basis ? `
-                        <div class="metric-row">
-                            <span class="metric-label">Analysis basis</span>
-                            <span class="metric-value">${escapeHtml(item.analysis_basis)}</span>
-                        </div>
-                        ` : ""}
                         <div class="metric-row">
                             <span class="metric-label">Total growth</span>
                             <span class="metric-value">${escapeHtml(formatPercent(item.total_growth_pct))}</span>
@@ -378,7 +419,27 @@ function renderSeriesResults(seriesResults) {
                             <span class="metric-value">${escapeHtml(formatPercent(item.compound_annual_growth_rate_pct))}</span>
                         </div>
                     </div>
-                    ${series.resolution_reason ? `<p class="series-note">${escapeHtml(series.resolution_reason)}</p>` : ""}
+                    <details class="series-secondary">
+                        <summary class="series-secondary-toggle">More details</summary>
+                        <div class="metric-list" style="margin-top:8px">
+                            <div class="metric-row">
+                                <span class="metric-label">Geography</span>
+                                <span class="metric-value">${escapeHtml(series.geography)}</span>
+                            </div>
+                            ${item.analysis_basis ? `
+                            <div class="metric-row">
+                                <span class="metric-label">Analysis basis</span>
+                                <span class="metric-value">${escapeHtml(item.analysis_basis)}</span>
+                            </div>
+                            ` : ""}
+                            ${series.resolution_reason ? `
+                            <div class="metric-row">
+                                <span class="metric-label">Resolution</span>
+                                <span class="metric-value" style="font-weight:400">${escapeHtml(series.resolution_reason)}</span>
+                            </div>
+                            ` : ""}
+                        </div>
+                    </details>
                     <a class="resource-link" href="${escapeHtml(series.source_url)}" target="_blank" rel="noreferrer">Open in FRED</a>
                 </article>
             `;
@@ -428,20 +489,51 @@ function renderClarificationOptions(response, query) {
     setHidden(clarificationInline, false);
 }
 
+function renderConversationThread() {
+    if (conversationHistory.length === 0) {
+        setHidden(conversationThread, true);
+        conversationThread.innerHTML = "";
+        return;
+    }
+
+    const previousTurns = conversationHistory.slice(0, -1);
+    if (previousTurns.length === 0) {
+        setHidden(conversationThread, true);
+        conversationThread.innerHTML = "";
+        return;
+    }
+
+    conversationThread.innerHTML = previousTurns
+        .map((turn) => `
+            <div class="thread-turn">
+                <p class="thread-query">${escapeHtml(turn.query)}</p>
+                <p class="thread-answer">${escapeHtml(turn.answer)}</p>
+            </div>
+        `)
+        .join("");
+    setHidden(conversationThread, false);
+}
+
 function renderResponse(response, query) {
-    setHidden(results, false);
-    answerHeading.textContent = response.status === "needs_clarification"
-        ? "Clarification needed"
-        : response.status === "unsupported"
-            ? "Unsupported query"
-            : "Analysis";
-    answerText.textContent = response.answer_text || "";
-    updateStatus(response.status, response.answer_text);
-    renderIntent(response.intent || {});
-    renderWarnings(response.result?.analysis?.warnings || []);
-    renderDerivedMetrics(response.result?.analysis?.derived_metrics || []);
-    renderChart(response.plotly_figure, response);
-    renderSeriesResults(response.result?.analysis?.series_results || []);
+    const isClarification = response.status === "needs_clarification";
+
+    if (isClarification) {
+        updateStatus(response.status, "Which series did you mean?");
+    } else if (response.status === "unsupported") {
+        updateStatus(response.status, "This query type isn't supported yet.");
+    } else {
+        updateStatus(null, "");
+    }
+
+    setHidden(results, isClarification);
+    if (!isClarification) {
+        answerText.textContent = response.answer_text || "";
+        renderIntent(response.intent || {});
+        renderWarnings(response.result?.analysis?.warnings || []);
+        renderDerivedMetrics(response.result?.analysis?.derived_metrics || []);
+        renderChart(response.plotly_figure, response);
+        renderSeriesResults(response.result?.analysis?.series_results || []);
+    }
     renderClarificationOptions(response, query);
 }
 
@@ -482,9 +574,19 @@ async function submitQuery({ query, selectedSeriesIds = [], preserveCurrentResul
 
         if (payload.session_id) {
             setActiveSessionId(payload.session_id);
-            updateSessionSummary();
         }
+        if (payload.status === "completed" || payload.status === "unsupported") {
+            addToHistory(query, payload.answer_text || "");
+        }
+        renderConversationThread();
+        updateSessionUI();
         renderResponse(payload, query);
+        if (payload.status !== "needs_clarification") {
+            queryInput.value = "";
+        }
+        if (!results.classList.contains("hidden")) {
+            results.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
     } catch (error) {
         showError(error instanceof Error ? error.message : "Unexpected error.");
         updateStatus(null, "");
@@ -507,10 +609,12 @@ async function handleSubmit(event) {
 
 function resetConversation() {
     setActiveSessionId(null);
-    updateSessionSummary();
+    clearHistory();
     clearError();
     clearResults();
     updateStatus(null, "");
+    renderConversationThread();
+    updateSessionUI();
 }
 
 queryForm.addEventListener("submit", handleSubmit);
@@ -559,4 +663,5 @@ queryInput.addEventListener("input", () => {
     }
 });
 
-updateSessionSummary();
+renderConversationThread();
+updateSessionUI();

@@ -45,6 +45,15 @@ textarea {
 .hero {
     text-align: center;
     margin-bottom: 32px;
+    transition: margin-bottom 0.2s;
+}
+
+.hero.compact {
+    margin-bottom: 20px;
+}
+
+.hero.compact h1 {
+    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
 }
 
 .eyebrow {
@@ -97,6 +106,10 @@ h2 {
     margin: 0;
     color: var(--muted);
     font-size: 0.85rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .query-form {
@@ -125,10 +138,13 @@ h2 {
 
 .form-footer {
     display: flex;
+    flex-direction: column;
     gap: 12px;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.form-footer .submit-button {
+    align-self: flex-end;
 }
 
 .suggestions {
@@ -317,6 +333,42 @@ h2 {
     font-size: 0.9rem;
 }
 
+/* ── Conversation thread ── */
+
+.conversation-thread {
+    display: grid;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.thread-turn {
+    display: grid;
+    gap: 6px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+
+.thread-query {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+}
+
+.thread-answer {
+    margin: 0;
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 /* ── Results ── */
 
 .results {
@@ -336,6 +388,10 @@ h2 {
     margin-bottom: 14px;
 }
 
+.answer-panel {
+    border-left: 3px solid var(--accent);
+}
+
 .answer-text {
     margin: 0;
     font-size: 0.95rem;
@@ -343,13 +399,42 @@ h2 {
     white-space: pre-wrap;
 }
 
-/* ── Intent summary ── */
+/* ── Intent summary (collapsible) ── */
+
+.intent-details {
+    margin-top: 14px;
+}
+
+.intent-toggle {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    padding: 6px 0;
+}
+
+.intent-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.intent-toggle::before {
+    content: "▸ ";
+    font-size: 0.7rem;
+    transition: transform 0.15s;
+    display: inline-block;
+}
+
+.intent-details[open] .intent-toggle::before {
+    content: "▾ ";
+}
 
 .intent-summary {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 16px 0 0;
+    margin: 10px 0 0;
 }
 
 .intent-summary div {
@@ -471,6 +556,54 @@ h2 {
     line-height: 1.3;
 }
 
+.series-headline {
+    display: flex;
+    gap: 16px;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+.series-headline-value {
+    margin: 0;
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.series-headline-date {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.series-secondary {
+    margin-top: 6px;
+}
+
+.series-secondary-toggle {
+    font-size: 0.8rem;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    padding: 4px 0;
+}
+
+.series-secondary-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.series-secondary-toggle::before {
+    content: "▸ ";
+    font-size: 0.65rem;
+    display: inline-block;
+}
+
+.series-secondary[open] .series-secondary-toggle::before {
+    content: "▾ ";
+}
+
 .series-badges {
     display: flex;
     gap: 6px;
@@ -542,18 +675,18 @@ h2 {
     }
 
     .form-footer {
-        flex-direction: column;
         align-items: stretch;
+    }
+
+    .form-footer .submit-button {
+        align-self: stretch;
     }
 
     .session-row {
         align-items: stretch;
     }
 
-    .submit-button {
-        width: 100%;
-    }
-
+    .submit-button,
     .ghost-button {
         width: 100%;
     }
