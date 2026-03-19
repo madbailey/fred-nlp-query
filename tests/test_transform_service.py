@@ -4,6 +4,7 @@ from datetime import date
 import unittest
 
 from fred_query.schemas.analysis import ObservationPoint
+from fred_query.schemas.intent import TransformType
 from fred_query.services.transform_service import TransformService
 
 
@@ -56,6 +57,46 @@ class TransformServiceTest(unittest.TestCase):
         self.assertEqual(context.max_date, date(2020, 1, 1))
         self.assertEqual(context.min_value, 4.1)
         self.assertEqual(context.min_date, date(2024, 1, 1))
+
+    def test_apply_single_series_transform_supports_year_over_year_change(self) -> None:
+        observations = [
+            ObservationPoint(date=date(2020 + (month - 1) // 12, ((month - 1) % 12) + 1, 1), value=100.0)
+            for month in range(1, 13)
+        ] + [
+            ObservationPoint(date=date(2021 + (month - 1) // 12, ((month - 1) % 12) + 1, 1), value=110.0)
+            for month in range(1, 13)
+        ]
+
+        transformed = self.service.apply_single_series_transform(
+            observations,
+            transform=TransformType.YEAR_OVER_YEAR_PERCENT_CHANGE,
+            units="Index",
+            frequency="Monthly",
+        )
+
+        self.assertEqual(transformed.basis, "Year-over-year percent change")
+        self.assertEqual(transformed.units, "Percent")
+        self.assertEqual(len(transformed.observations or []), 12)
+        self.assertTrue(all(round(point.value, 2) == 10.0 for point in transformed.observations or []))
+
+    def test_rolling_helpers_and_defaults(self) -> None:
+        observations = [
+            ObservationPoint(date=date(2024, 1, day), value=float(day))
+            for day in range(1, 6)
+        ]
+
+        rolling_average = self.service.rolling_average(observations, window=3)
+        rolling_stddev = self.service.rolling_stddev(observations, window=3)
+        default_window, warnings = self.service.resolve_transform_window(
+            transform=TransformType.ROLLING_VOLATILITY,
+            frequency="Daily",
+            requested_window=None,
+        )
+
+        self.assertEqual([round(point.value, 2) for point in rolling_average], [2.0, 3.0, 4.0])
+        self.assertEqual([round(point.value, 4) for point in rolling_stddev], [1.0, 1.0, 1.0])
+        self.assertEqual(default_window, 30)
+        self.assertIn("30-observation rolling window", warnings[0])
 
     def test_relationship_helpers(self) -> None:
         code, label, periods_per_year, lag_unit = self.service.choose_relationship_frequency(["Daily", "Monthly"])

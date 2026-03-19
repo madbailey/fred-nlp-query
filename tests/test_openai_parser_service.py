@@ -132,6 +132,25 @@ class OpenAIIntentParserTest(unittest.TestCase):
         self.assertEqual(parsed.task_type, TaskType.CROSS_SECTION)
         self.assertEqual(parsed.cross_section_scope, CrossSectionScope.SINGLE_SERIES)
 
+    def test_parser_preserves_transform_window_for_rolling_queries(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.SINGLE_SERIES_LOOKUP,
+            indicators=["s&p 500"],
+            search_text="s&p 500",
+            transform=TransformType.ROLLING_VOLATILITY,
+            transform_window=30,
+        )
+        parser = OpenAIIntentParser(
+            api_key="test-key",
+            client=_FakeOpenAIClient(intent),
+        )
+
+        parsed = parser.parse("How volatile has the S&P 500 been over the last 30 days?")
+
+        self.assertEqual(parsed.transform, TransformType.ROLLING_VOLATILITY)
+        self.assertEqual(parsed.transform_window, 30)
+        self.assertFalse(parsed.normalization)
+
 
 if __name__ == "__main__":
     unittest.main()

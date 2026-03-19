@@ -3,7 +3,7 @@ from __future__ import annotations
 from openai import OpenAI
 
 from fred_query.errors import ConfigurationError, IntentParsingError
-from fred_query.schemas.intent import CrossSectionScope, QueryIntent, TaskType
+from fred_query.schemas.intent import CrossSectionScope, QueryIntent, TaskType, TransformType
 from fred_query.services.cross_section_intent_service import CrossSectionIntentService
 
 
@@ -33,6 +33,12 @@ Rules:
 - For relationship_analysis and multi_series_comparison, if the user explicitly mentions series IDs, put them in series_ids in the same order as the targets.
 - Populate search_text with a short FRED-friendly search phrase whenever series_id is not provided.
 - Use normalization=true only when the user is asking for relative growth, indexed comparison, or wants the series normalized.
+- Use transform=year_over_year_percent_change for "YoY", "year over year", or similar change-rate requests.
+- Use transform=period_over_period_percent_change for month-over-month, quarter-over-quarter, or period-over-period change requests.
+- Use transform=rolling_average for moving-average or rolling-average requests.
+- Use transform=rolling_stddev for rolling standard deviation requests.
+- Use transform=rolling_volatility for volatility requests about a single market or economic series.
+- Set transform_window when the user specifies a rolling window length such as 3 months, 12 months, or 30 days. Leave it null when the user does not specify a window.
 - Preserve date ranges when the user gives them. If no dates are given, leave them null.
 - For state_gdp_comparison, include exactly two state geographies when possible.
 - For relationship_analysis and multi_series_comparison, prefer exactly two targets. If the request names fewer or more than two meaningful targets, set clarification_needed=true.
@@ -78,6 +84,11 @@ class OpenAIIntentParser:
 
         if not intent.original_query:
             intent.original_query = query
+
+        if intent.transform == TransformType.NORMALIZED_INDEX:
+            intent.normalization = True
+        elif intent.transform != TransformType.LEVEL:
+            intent.normalization = False
 
         if intent.task_type == TaskType.STATE_GDP_COMPARISON and len(intent.geographies) != 2:
             intent.clarification_needed = True

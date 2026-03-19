@@ -1,14 +1,28 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from math import sqrt
-from datetime import date
+from datetime import date, timedelta
 
 from fred_query.schemas.analysis import HistoricalSeriesContext, ObservationPoint
 from fred_query.schemas.chart import DateSpanAnnotation
+from fred_query.schemas.intent import TransformType
+
+
+@dataclass
+class SingleSeriesTransformResult:
+    observations: list[ObservationPoint] | None
+    basis: str | None
+    units: str
+    applied_window: int | None = None
+    compare_on_transformed_series: bool = False
+    warnings: list[str] = field(default_factory=list)
 
 
 class TransformService:
     """Deterministic transforms and derived metrics."""
+
+    _DAILY_PERIODS_PER_YEAR = 252
 
     @staticmethod
     def choose_relationship_frequency(
@@ -20,6 +34,125 @@ class TransformService:
         if any("quarter" in value or value == "q" for value in normalized):
             return "q", "Quarterly", 4, "quarters"
         return "m", "Monthly", 12, "months"
+
+    @staticmethod
+    def periods_per_year_for_frequency(frequency: str | None) -> int:
+        normalized = (frequency or "").strip().lower()
+        if normalized in {"d", "daily"} or "daily" in normalized:
+            return TransformService._DAILY_PERIODS_PER_YEAR
+        if normalized in {"w", "weekly"} or "weekly" in normalized:
+            return 52
+        if normalized in {"bw", "biweekly"} or "biweekly" in normalized:
+            return 26
+        if "semiannual" in normalized or "semi-annual" in normalized:
+            return 2
+        if normalized in {"q", "quarterly"} or "quarter" in normalized:
+            return 4
+        if normalized in {"a", "annual", "annually"} or "annual" in normalized or "year" in normalized:
+            return 1
+        return 12
+
+    @staticmethod
+    def _add_months(value: date, months: int) -> date:
+        month_index = (value.month - 1) + months
+        year = value.year + (month_index // 12)
+        month = (month_index % 12) + 1
+        if month == 2:
+            leap_year = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+            max_day = 29 if leap_year else 28
+        elif month in {4, 6, 9, 11}:
+            max_day = 30
+        else:
+            max_day = 31
+        return date(year, month, min(value.day, max_day))
+
+    def subtract_periods(
+        self,
+        value: date,
+        *,
+        periods: int,
+        frequency: str | None,
+    ) -> date:
+        if periods <= 0:
+            return value
+
+        normalized = (frequency or "").strip().lower()
+        if normalized in {"d", "daily"} or "daily" in normalized:
+            return value - timedelta(days=periods)
+        if normalized in {"w", "weekly"} or "weekly" in normalized:
+            return value - timedelta(days=periods * 7)
+        if normalized in {"bw", "biweekly"} or "biweekly" in normalized:
+            return value - timedelta(days=periods * 14)
+        if "semiannual" in normalized or "semi-annual" in normalized:
+            return self._add_months(value, -(periods * 6))
+        if normalized in {"q", "quarterly"} or "quarter" in normalized:
+            return self._add_months(value, -(periods * 3))
+        if normalized in {"a", "annual", "annually"} or "annual" in normalized or "year" in normalized:
+            try:
+                return value.replace(year=value.year - periods)
+            except ValueError:
+                return value.replace(month=2, day=28, year=value.year - periods)
+        return self._add_months(value, -periods)
+
+    def default_window_for_transform(
+        self,
+        *,
+        transform: TransformType,
+        frequency: str | None,
+    ) -> int | None:
+        if transform not in (
+            TransformType.ROLLING_AVERAGE,
+            TransformType.ROLLING_STDDEV,
+            TransformType.ROLLING_VOLATILITY,
+        ):
+            return None
+
+        periods_per_year = self.periods_per_year_for_frequency(frequency)
+        if periods_per_year >= self._DAILY_PERIODS_PER_YEAR:
+            return 30
+        if periods_per_year >= 52:
+            return 13
+        if periods_per_year >= 12:
+            return 12
+        if periods_per_year >= 4:
+            return 4
+        return 3
+
+    def resolve_transform_window(
+        self,
+        *,
+        transform: TransformType,
+        frequency: str | None,
+        requested_window: int | None,
+    ) -> tuple[int | None, list[str]]:
+        if requested_window is not None:
+            return requested_window, []
+
+        default_window = self.default_window_for_transform(transform=transform, frequency=frequency)
+        if default_window is None:
+            return None, []
+
+        return (
+            default_window,
+            [f"Used a default {default_window}-observation rolling window because the query did not specify one."],
+        )
+
+    def transform_warmup_periods(
+        self,
+        *,
+        transform: TransformType,
+        periods_per_year: int,
+        window: int | None,
+    ) -> int:
+        if transform == TransformType.PERIOD_OVER_PERIOD_PERCENT_CHANGE:
+            return 1
+        if transform == TransformType.YEAR_OVER_YEAR_PERCENT_CHANGE:
+            return max(1, periods_per_year)
+        if transform in (TransformType.ROLLING_AVERAGE, TransformType.ROLLING_STDDEV):
+            return max(0, (window or 0) - 1)
+        if transform == TransformType.ROLLING_VOLATILITY:
+            return max(1, window or 0)
+        return 0
 
     @staticmethod
     def relationship_max_lag(periods_per_year: int) -> int:
@@ -51,6 +184,186 @@ class TransformService:
                 )
             )
         return transformed
+
+    @staticmethod
+    def cumulative_growth_series(observations: list[ObservationPoint]) -> list[ObservationPoint]:
+        if not observations:
+            return []
+
+        first_value = observations[0].value
+        if first_value == 0:
+            return []
+
+        return [
+            ObservationPoint(
+                date=point.date,
+                value=((point.value / first_value) - 1.0) * 100.0,
+            )
+            for point in observations
+        ]
+
+    @staticmethod
+    def rolling_average(observations: list[ObservationPoint], *, window: int) -> list[ObservationPoint]:
+        if window <= 0 or len(observations) < window:
+            return []
+
+        transformed: list[ObservationPoint] = []
+        for index in range(window - 1, len(observations)):
+            current_window = observations[index - window + 1 : index + 1]
+            transformed.append(
+                ObservationPoint(
+                    date=observations[index].date,
+                    value=sum(point.value for point in current_window) / window,
+                )
+            )
+        return transformed
+
+    @staticmethod
+    def rolling_stddev(
+        observations: list[ObservationPoint],
+        *,
+        window: int,
+    ) -> list[ObservationPoint]:
+        if window < 2 or len(observations) < window:
+            return []
+
+        transformed: list[ObservationPoint] = []
+        for index in range(window - 1, len(observations)):
+            current_window = observations[index - window + 1 : index + 1]
+            values = [point.value for point in current_window]
+            mean = sum(values) / window
+            variance = sum((value - mean) ** 2 for value in values) / (window - 1)
+            transformed.append(
+                ObservationPoint(
+                    date=observations[index].date,
+                    value=sqrt(variance),
+                )
+            )
+        return transformed
+
+    def rolling_volatility(
+        self,
+        observations: list[ObservationPoint],
+        *,
+        window: int,
+        periods_per_year: int,
+    ) -> list[ObservationPoint]:
+        period_returns = self.calculate_pct_change(observations, periods=1)
+        if not period_returns:
+            return []
+
+        rolling_stddev = self.rolling_stddev(period_returns, window=window)
+        annualization_factor = sqrt(max(1, periods_per_year))
+        return [
+            ObservationPoint(
+                date=point.date,
+                value=point.value * annualization_factor,
+            )
+            for point in rolling_stddev
+        ]
+
+    @staticmethod
+    def filter_observations_by_date(
+        observations: list[ObservationPoint],
+        *,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[ObservationPoint]:
+        return [
+            point
+            for point in observations
+            if (start_date is None or point.date >= start_date)
+            and (end_date is None or point.date <= end_date)
+        ]
+
+    def apply_single_series_transform(
+        self,
+        observations: list[ObservationPoint],
+        *,
+        transform: TransformType,
+        units: str,
+        frequency: str | None,
+        window: int | None = None,
+    ) -> SingleSeriesTransformResult:
+        if transform == TransformType.LEVEL:
+            return SingleSeriesTransformResult(observations=None, basis=None, units=units)
+
+        if transform == TransformType.NORMALIZED_INDEX:
+            return SingleSeriesTransformResult(
+                observations=self.normalize_to_index(observations),
+                basis="Normalized index",
+                units="Index (Base = 100)",
+            )
+
+        if transform == TransformType.TOTAL_GROWTH:
+            return SingleSeriesTransformResult(
+                observations=self.cumulative_growth_series(observations),
+                basis="Cumulative percent change from the first observation",
+                units="Percent",
+                compare_on_transformed_series=True,
+            )
+
+        periods_per_year = self.periods_per_year_for_frequency(frequency)
+
+        if transform == TransformType.PERIOD_OVER_PERIOD_PERCENT_CHANGE:
+            return SingleSeriesTransformResult(
+                observations=self.calculate_pct_change(observations, periods=1),
+                basis="Period-over-period percent change",
+                units="Percent",
+                compare_on_transformed_series=True,
+            )
+
+        if transform == TransformType.YEAR_OVER_YEAR_PERCENT_CHANGE:
+            return SingleSeriesTransformResult(
+                observations=self.calculate_pct_change(observations, periods=max(1, periods_per_year)),
+                basis="Year-over-year percent change",
+                units="Percent",
+                compare_on_transformed_series=True,
+            )
+
+        applied_window, warnings = self.resolve_transform_window(
+            transform=transform,
+            frequency=frequency,
+            requested_window=window,
+        )
+        if applied_window is None:
+            return SingleSeriesTransformResult(observations=None, basis=None, units=units)
+
+        if transform == TransformType.ROLLING_AVERAGE:
+            return SingleSeriesTransformResult(
+                observations=self.rolling_average(observations, window=applied_window),
+                basis=f"{applied_window}-observation rolling average",
+                units=units,
+                applied_window=applied_window,
+                compare_on_transformed_series=True,
+                warnings=warnings,
+            )
+
+        if transform == TransformType.ROLLING_STDDEV:
+            return SingleSeriesTransformResult(
+                observations=self.rolling_stddev(observations, window=applied_window),
+                basis=f"{applied_window}-observation rolling standard deviation",
+                units=units,
+                applied_window=applied_window,
+                compare_on_transformed_series=True,
+                warnings=warnings,
+            )
+
+        if transform == TransformType.ROLLING_VOLATILITY:
+            return SingleSeriesTransformResult(
+                observations=self.rolling_volatility(
+                    observations,
+                    window=applied_window,
+                    periods_per_year=periods_per_year,
+                ),
+                basis=f"{applied_window}-observation rolling annualized volatility",
+                units="Percent",
+                applied_window=applied_window,
+                compare_on_transformed_series=True,
+                warnings=warnings,
+            )
+
+        return SingleSeriesTransformResult(observations=None, basis=None, units=units)
 
     @staticmethod
     def should_use_level_relationship(title: str, units: str) -> bool:

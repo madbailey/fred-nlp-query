@@ -75,35 +75,49 @@ class AnswerService:
             return "just "
         return ""
 
-    def _historical_context_sentence(self, analysis: AnalysisResult) -> str | None:
+    @staticmethod
+    def _latest_display_point(
+        analysis: AnalysisResult,
+        *,
+        normalize: bool,
+    ) -> tuple[float | None, object | None, str | None, str | None]:
+        result = analysis.series_results[0]
+        if result.analysis_basis and result.transformed_observations:
+            latest_point = result.transformed_observations[-1]
+            return (
+                latest_point.value,
+                latest_point.date,
+                result.analysis_units or result.series.units,
+                result.analysis_basis.lower(),
+            )
+        return result.latest_value, result.latest_observation_date, result.series.units, None
+
+    def _historical_context_sentence(self, analysis: AnalysisResult, *, normalize: bool) -> str | None:
         result = analysis.series_results[0]
         context = result.historical_context
-        if (
-            context is None
-            or context.observation_count < 2
-            or result.latest_value is None
-        ):
+        latest_value, _, latest_units, subject_basis = self._latest_display_point(analysis, normalize=normalize)
+        if context is None or context.observation_count < 2 or latest_value is None:
             return None
 
-        value_label = self._value_label(result.series.title, result.series.units)
+        value_label = subject_basis or self._value_label(result.series.title, latest_units)
         window_label = self._historical_window_label(context)
         clauses: list[str] = []
 
         if context.average_value is not None:
-            if result.latest_value > context.average_value:
+            if latest_value > context.average_value:
                 average_relationship = "above"
-            elif result.latest_value < context.average_value:
+            elif latest_value < context.average_value:
                 average_relationship = "below"
             else:
                 average_relationship = "in line with"
             clauses.append(
-                f"The latest {value_label} of {self._format_series_value(result.latest_value, result.series.units)} "
+                f"The latest {value_label} of {self._format_series_value(latest_value, latest_units)} "
                 f"is {average_relationship} the {window_label} average of "
-                f"{self._format_series_value(context.average_value, result.series.units)}"
+                f"{self._format_series_value(context.average_value, latest_units)}"
             )
         else:
             clauses.append(
-                f"The latest {value_label} is {self._format_series_value(result.latest_value, result.series.units)}"
+                f"The latest {value_label} is {self._format_series_value(latest_value, latest_units)}"
             )
 
         if context.percentile_rank is not None:
@@ -115,34 +129,34 @@ class AnswerService:
             and context.max_date is not None
             and context.min_value is not None
         ):
-            if abs(result.latest_value - context.max_value) < 1e-9:
+            if abs(latest_value - context.max_value) < 1e-9:
                 clauses.append("matches the high for that window")
             else:
                 qualifier = self._distance_qualifier(
-                    result.latest_value,
+                    latest_value,
                     context.max_value,
                     context.min_value,
                 )
                 clauses.append(
                     f"is {qualifier}below the {context.max_date.year} peak of "
-                    f"{self._format_series_value(context.max_value, result.series.units)}"
+                    f"{self._format_series_value(context.max_value, latest_units)}"
                 )
         elif (
             context.min_value is not None
             and context.min_date is not None
             and context.max_value is not None
         ):
-            if abs(result.latest_value - context.min_value) < 1e-9:
+            if abs(latest_value - context.min_value) < 1e-9:
                 clauses.append("matches the low for that window")
             else:
                 qualifier = self._distance_qualifier(
-                    result.latest_value,
+                    latest_value,
                     context.min_value,
                     context.max_value,
                 )
                 clauses.append(
                     f"is {qualifier}above the {context.min_date.year} trough of "
-                    f"{self._format_series_value(context.min_value, result.series.units)}"
+                    f"{self._format_series_value(context.min_value, latest_units)}"
                 )
 
         summary = self._join_clauses(clauses)
@@ -193,20 +207,34 @@ class AnswerService:
         result = analysis.series_results[0]
         start_year = analysis.coverage_start.year if analysis.coverage_start else "the requested start"
         end_year = analysis.coverage_end.year if analysis.coverage_end else "the latest available year"
+        latest_display_value, latest_display_date, latest_display_units, latest_basis = self._latest_display_point(
+            analysis,
+            normalize=normalize,
+        )
 
         parts = [
             f"Retrieved {result.series.title} from {start_year} to {end_year}.",
         ]
-        if result.latest_value is not None and result.latest_observation_date is not None:
+        if latest_display_value is not None and latest_display_date is not None and latest_basis:
             parts.append(
-                f"The latest observation is {result.latest_value:,.2f} on {result.latest_observation_date.isoformat()}."
+                f"The latest {latest_basis} reading is "
+                f"{self._format_series_value(latest_display_value, latest_display_units)} "
+                f"on {latest_display_date.isoformat()}."
             )
-        historical_context_sentence = self._historical_context_sentence(analysis)
+        elif result.latest_value is not None and result.latest_observation_date is not None:
+            parts.append(
+                f"The latest observation is "
+                f"{self._format_series_value(result.latest_value, result.series.units)} "
+                f"on {result.latest_observation_date.isoformat()}."
+            )
+        historical_context_sentence = self._historical_context_sentence(analysis, normalize=normalize)
         if historical_context_sentence:
             parts.append(historical_context_sentence)
         if result.total_growth_pct is not None:
             parts.append(f"Total growth over the period was {result.total_growth_pct:.2f}%.")
-        if normalize:
+        if result.analysis_basis:
+            parts.append(f"The chart shows {result.analysis_basis.lower()}.")
+        elif normalize:
             parts.append("The chart is normalized to an index of 100 at the first observation.")
         else:
             parts.append("The chart uses reported levels.")

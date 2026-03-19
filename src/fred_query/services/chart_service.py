@@ -63,13 +63,23 @@ class ChartService:
         normalize: bool,
         recession_periods: list[DateSpanAnnotation],
     ) -> ChartSpec:
-        points = series_result.transformed_observations if normalize else series_result.observations
-        y_axis_title = "Index (Base = 100)" if normalize else series_result.series.units
+        if series_result.analysis_basis and series_result.transformed_observations:
+            points = series_result.transformed_observations
+            y_axis_title = series_result.analysis_units or series_result.series.units
+            subtitle = f"{series_result.analysis_basis}. Coverage: {start_year} to {end_year}."
+        else:
+            points = series_result.transformed_observations if normalize else series_result.observations
+            y_axis_title = "Index (Base = 100)" if normalize else series_result.series.units
+            subtitle = (
+                f"Normalized to an index of 100 at the first observation. Coverage: {start_year} to {end_year}."
+                if normalize
+                else f"Coverage: {start_year} to {end_year}."
+            )
 
         return ChartSpec(
             chart_type="scatter",
             title=series_result.series.title,
-            subtitle=f"Coverage: {start_year} to {end_year}.",
+            subtitle=subtitle,
             x_axis=AxisSpec(title="Date"),
             y_axis=AxisSpec(title=y_axis_title),
             series=[
