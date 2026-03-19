@@ -1,6 +1,7 @@
 from fred_query.schemas.analysis import (
     AnalysisResult,
     DerivedMetric,
+    HistoricalSeriesContext,
     ObservationPoint,
     QueryResponse,
     RoutedQueryResponse,
@@ -30,6 +31,7 @@ __all__ = [
     "DerivedMetric",
     "Geography",
     "GeographyType",
+    "HistoricalSeriesContext",
     "LineStyle",
     "ObservationPoint",
     "QueryIntent",

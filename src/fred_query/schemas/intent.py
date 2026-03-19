@@ -26,6 +26,11 @@ class TransformType(str, Enum):
     LEVEL = "level"
     NORMALIZED_INDEX = "normalized_index"
     TOTAL_GROWTH = "total_growth"
+    YEAR_OVER_YEAR_PERCENT_CHANGE = "year_over_year_percent_change"
+    PERIOD_OVER_PERIOD_PERCENT_CHANGE = "period_over_period_percent_change"
+    ROLLING_AVERAGE = "rolling_average"
+    ROLLING_STDDEV = "rolling_stddev"
+    ROLLING_VOLATILITY = "rolling_volatility"
 
 
 class GeographyType(str, Enum):
@@ -62,6 +67,7 @@ class QueryIntent(BaseModel):
     observation_date: date | None = None
     frequency: str | None = None
     transform: TransformType = TransformType.LEVEL
+    transform_window: int | None = Field(default=None, ge=2, le=1000)
     normalization: bool = False
     units_preference: str | None = None
     cross_section_scope: CrossSectionScope | None = None
