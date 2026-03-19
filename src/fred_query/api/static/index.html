@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FRED Query</title>
+    <meta
+        name="description"
+        content="Natural-language interface for FRED data with inspectable charts, series metadata, and clarification flows."
+    >
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet"
+    >
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="/static/app.js" defer></script>
+</head>
+<body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <main class="shell">
+        <section class="hero panel">
+            <div>
+                <p class="eyebrow">FRED Query</p>
+                <h1>Ask economic questions. Get inspectable answers.</h1>
+                <p class="lede">
+                    Natural-language FRED search with clarification when the question is ambiguous, plus charts,
+                    series metadata, and source links.
+                </p>
+            </div>
+            <div class="hero-aside">
+                <p class="stat-label">Current surface</p>
+                <div class="stat-grid">
+                    <div>
+                        <span class="stat-value">NL</span>
+                        <span class="stat-copy">OpenAI intent parsing</span>
+                    </div>
+                    <div>
+                        <span class="stat-value">FRED</span>
+                        <span class="stat-copy">Direct API retrieval</span>
+                    </div>
+                    <div>
+                        <span class="stat-value">Plotly</span>
+                        <span class="stat-copy">Interactive chart rendering</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="query-panel panel">
+            <form id="query-form" class="query-form">
+                <label class="input-label" for="query-input">Question</label>
+                <textarea
+                    id="query-input"
+                    name="query"
+                    rows="3"
+                    placeholder="Show me the unemployment rate since 2020"
+                >Show me the unemployment rate since 2020</textarea>
+                <div class="form-footer">
+                    <div class="suggestions" aria-label="Example queries">
+                        <button type="button" class="suggestion" data-query="Show me the unemployment rate since 2020">
+                            Unemployment since 2020
+                        </button>
+                        <button type="button" class="suggestion" data-query="How has California's GDP compared with Texas since 2019?">
+                            California vs Texas GDP
+                        </button>
+                        <button type="button" class="suggestion" data-query="Compare New York and Florida GDP since 2015">
+                            New York vs Florida GDP
+                        </button>
+                    </div>
+                    <button id="submit-button" class="submit-button" type="submit">Run Query</button>
+                </div>
+            </form>
+            <div id="status-row" class="status-row hidden" aria-live="polite">
+                <span id="status-pill" class="status-pill"></span>
+                <p id="status-text" class="status-text"></p>
+            </div>
+            <div id="error-banner" class="error-banner hidden" role="alert"></div>
+        </section>
+
+        <section id="results" class="results hidden">
+            <article class="panel answer-panel">
+                <div class="panel-heading">
+                    <p class="eyebrow">Response</p>
+                    <h2 id="answer-heading">Analysis</h2>
+                </div>
+                <p id="answer-text" class="answer-text"></p>
+                <dl id="intent-summary" class="intent-summary"></dl>
+                <div id="warning-list" class="warning-list"></div>
+            </article>
+
+            <article id="chart-panel" class="panel chart-panel hidden">
+                <div class="panel-heading">
+                    <p class="eyebrow">Chart</p>
+                    <h2>Interactive view</h2>
+                </div>
+                <div id="chart" class="chart"></div>
+                <p id="source-note" class="source-note"></p>
+            </article>
+
+            <article id="series-panel" class="panel hidden">
+                <div class="panel-heading">
+                    <p class="eyebrow">Resolved Series</p>
+                    <h2>What the engine actually used</h2>
+                </div>
+                <div id="series-grid" class="series-grid"></div>
+            </article>
+
+            <article id="clarification-panel" class="panel hidden">
+                <div class="panel-heading">
+                    <p class="eyebrow">Clarification</p>
+                    <h2>Candidate series</h2>
+                </div>
+                <p class="clarification-copy">
+                    The parser did not force a guess. Refine the query using one of these exact FRED series.
+                </p>
+                <div id="candidate-list" class="candidate-list"></div>
+            </article>
+        </section>
+    </main>
+</body>
+</html>

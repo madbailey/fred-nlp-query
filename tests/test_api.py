@@ -10,6 +10,7 @@ from fred_query.api.app import (
     get_natural_language_query_service,
     get_state_gdp_comparison_service,
 )
+from fred_query.errors import ConfigurationError
 from fred_query.schemas.analysis import (
     AnalysisResult,
     QueryResponse,
@@ -20,6 +21,7 @@ from fred_query.schemas.analysis import (
 from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace
 from fred_query.schemas.intent import ComparisonMode, Geography, GeographyType, QueryIntent, TaskType, TransformType
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesSearchMatch
+from fred_query.services import FREDAPIError
 
 
 def _build_query_response() -> QueryResponse:
@@ -95,6 +97,22 @@ class _FakeStateGDPComparisonService:
         return _build_query_response()
 
 
+class _FailingNaturalLanguageQueryService:
+    def __init__(self, exc: Exception) -> None:
+        self.exc = exc
+
+    def ask(self, query: str) -> RoutedQueryResponse:
+        raise self.exc
+
+
+class _FailingStateGDPComparisonService:
+    def __init__(self, exc: Exception) -> None:
+        self.exc = exc
+
+    def compare(self, **_: object) -> QueryResponse:
+        raise self.exc
+
+
 class APITest(unittest.TestCase):
     def setUp(self) -> None:
         app.dependency_overrides.clear()
@@ -108,6 +126,24 @@ class APITest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_index(self) -> None:
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+        self.assertIn("Ask economic questions. Get inspectable answers.", response.text)
+
+    def test_static_assets(self) -> None:
+        js_response = self.client.get("/static/app.js")
+        css_response = self.client.get("/static/styles.css")
+
+        self.assertEqual(js_response.status_code, 200)
+        self.assertIn("javascript", js_response.headers["content-type"])
+        self.assertIn("handleSubmit", js_response.text)
+        self.assertEqual(css_response.status_code, 200)
+        self.assertIn("text/css", css_response.headers["content-type"])
+        self.assertIn(".hero", css_response.text)
 
     def test_ask_completed(self) -> None:
         routed = RoutedQueryResponse(
@@ -168,6 +204,76 @@ class APITest(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["answer_text"], "Completed comparison.")
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
+
+    def test_ask_blank_query_returns_validation_error(self) -> None:
+        response = self.client.post("/api/ask", json={"query": "   "})
+
+        self.assertEqual(response.status_code, 422)
+        payload = response.json()
+        self.assertIn("Query must not be blank", payload["detail"][0]["msg"])
+
+    def test_compare_state_gdp_rejects_invalid_date_range(self) -> None:
+        response = self.client.post(
+            "/api/compare/state-gdp",
+            json={
+                "state1": "California",
+                "state2": "Texas",
+                "start_date": "2020-01-01",
+                "end_date": "2019-01-01",
+                "normalize": True,
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        payload = response.json()
+        self.assertIn("end_date must be on or after start_date", payload["detail"][0]["msg"])
+
+    def test_ask_value_error_returns_json_400(self) -> None:
+        app.dependency_overrides[get_natural_language_query_service] = (
+            lambda: _FailingNaturalLanguageQueryService(ValueError("No deterministic execution path matched the request."))
+        )
+
+        response = self.client.post("/api/ask", json={"query": "Compare GDP"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("application/json", response.headers["content-type"])
+        payload = response.json()
+        self.assertEqual(payload["error"]["code"], "invalid_request")
+        self.assertEqual(payload["detail"], "No deterministic execution path matched the request.")
+
+    def test_compare_state_gdp_upstream_error_returns_json_502(self) -> None:
+        app.dependency_overrides[get_state_gdp_comparison_service] = (
+            lambda: _FailingStateGDPComparisonService(FREDAPIError("FRED request timed out."))
+        )
+
+        response = self.client.post(
+            "/api/compare/state-gdp",
+            json={
+                "state1": "California",
+                "state2": "Texas",
+                "start_date": "2019-01-01",
+                "normalize": True,
+            },
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("application/json", response.headers["content-type"])
+        payload = response.json()
+        self.assertEqual(payload["error"]["code"], "fred_error")
+        self.assertEqual(payload["detail"], "FRED request timed out.")
+
+    def test_ask_configuration_error_returns_json_503(self) -> None:
+        app.dependency_overrides[get_natural_language_query_service] = (
+            lambda: _FailingNaturalLanguageQueryService(ConfigurationError("An OpenAI API key is required for intent parsing."))
+        )
+
+        response = self.client.post("/api/ask", json={"query": "Show me unemployment"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("application/json", response.headers["content-type"])
+        payload = response.json()
+        self.assertEqual(payload["error"]["code"], "service_configuration_error")
+        self.assertEqual(payload["detail"], "An OpenAI API key is required for intent parsing.")
 
 
 if __name__ == "__main__":

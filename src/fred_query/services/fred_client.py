@@ -5,12 +5,16 @@ from typing import Any
 
 import httpx
 
+from fred_query.errors import ConfigurationError, UpstreamServiceError
 from fred_query.schemas.analysis import ObservationPoint
 from fred_query.schemas.resolved_series import SeriesMetadata, SeriesSearchMatch
 
 
-class FREDAPIError(RuntimeError):
+class FREDAPIError(UpstreamServiceError):
     """Raised when a FRED request fails."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__("fred", message)
 
 
 class FREDClient:
@@ -25,7 +29,7 @@ class FREDClient:
         http_client: httpx.Client | None = None,
     ) -> None:
         if not api_key:
-            raise ValueError("A FRED API key is required.")
+            raise ConfigurationError("A FRED API key is required.")
 
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")

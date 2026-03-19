@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from openai import OpenAI
 
+from fred_query.errors import ConfigurationError, IntentParsingError
 from fred_query.schemas.intent import QueryIntent, TaskType
 
 
@@ -37,24 +38,28 @@ class OpenAIIntentParser:
         client: OpenAI | None = None,
     ) -> None:
         if not api_key and client is None:
-            raise ValueError("An OpenAI API key is required for intent parsing.")
+            raise ConfigurationError("An OpenAI API key is required for intent parsing.")
 
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.client = client or OpenAI(api_key=api_key)
 
     def parse(self, query: str) -> QueryIntent:
-        response = self.client.responses.parse(
-            model=self.model,
-            instructions=PARSER_INSTRUCTIONS,
-            input=query,
-            text_format=QueryIntent,
-            reasoning={"effort": self.reasoning_effort},
-            store=False,
-        )
+        try:
+            response = self.client.responses.parse(
+                model=self.model,
+                instructions=PARSER_INSTRUCTIONS,
+                input=query,
+                text_format=QueryIntent,
+                reasoning={"effort": self.reasoning_effort},
+                store=False,
+            )
+        except Exception as exc:
+            raise IntentParsingError(f"Natural-language parsing failed: {exc}") from exc
+
         intent = response.output_parsed
         if intent is None:
-            raise ValueError("OpenAI parser returned no structured intent.")
+            raise IntentParsingError("OpenAI parser returned no structured intent.")
 
         if not intent.original_query:
             intent.original_query = query
