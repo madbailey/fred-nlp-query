@@ -34,6 +34,29 @@ class TransformServiceTest(unittest.TestCase):
         self.assertAlmostEqual(total_growth or 0.0, 21.0, places=4)
         self.assertAlmostEqual(cagr or 0.0, 10.0, places=1)
 
+    def test_summarize_historical_context(self) -> None:
+        observations = [
+            ObservationPoint(date=date(1974, 1, 1), value=8.0),
+            ObservationPoint(date=date(1990, 1, 1), value=6.5),
+            ObservationPoint(date=date(2000, 1, 1), value=5.5),
+            ObservationPoint(date=date(2010, 1, 1), value=9.0),
+            ObservationPoint(date=date(2020, 1, 1), value=14.7),
+            ObservationPoint(date=date(2024, 1, 1), value=4.1),
+        ]
+
+        context = self.service.summarize_historical_context(observations)
+
+        self.assertIsNotNone(context)
+        self.assertEqual(context.start_date, date(1974, 1, 1))
+        self.assertEqual(context.end_date, date(2024, 1, 1))
+        self.assertEqual(context.observation_count, 6)
+        self.assertAlmostEqual(context.average_value or 0.0, 7.9667, places=4)
+        self.assertAlmostEqual(context.percentile_rank or 0.0, 16.6667, places=4)
+        self.assertEqual(context.max_value, 14.7)
+        self.assertEqual(context.max_date, date(2020, 1, 1))
+        self.assertEqual(context.min_value, 4.1)
+        self.assertEqual(context.min_date, date(2024, 1, 1))
+
     def test_relationship_helpers(self) -> None:
         code, label, periods_per_year, lag_unit = self.service.choose_relationship_frequency(["Daily", "Monthly"])
 

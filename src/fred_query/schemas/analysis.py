@@ -26,12 +26,27 @@ class DerivedMetric(BaseModel):
     description: str | None = None
 
 
+class HistoricalSeriesContext(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    start_date: date
+    end_date: date
+    observation_count: int
+    average_value: float | None = None
+    percentile_rank: float | None = None
+    min_value: float | None = None
+    min_date: date | None = None
+    max_value: float | None = None
+    max_date: date | None = None
+
+
 class SeriesAnalysis(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     series: ResolvedSeries
     observations: list[ObservationPoint] = Field(default_factory=list)
     transformed_observations: list[ObservationPoint] | None = None
+    historical_context: HistoricalSeriesContext | None = None
     analysis_basis: str | None = None
     analysis_units: str | None = None
     total_growth_pct: float | None = None

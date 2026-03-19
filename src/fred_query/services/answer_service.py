@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fred_query.schemas.analysis import AnalysisResult
+from fred_query.schemas.analysis import AnalysisResult, HistoricalSeriesContext
 from fred_query.schemas.intent import QueryIntent
 
 
@@ -20,6 +20,133 @@ class AnswerService:
             if metric.name == name:
                 return metric.unit
         return None
+
+    @staticmethod
+    def _format_series_value(value: float, units: str | None) -> str:
+        formatted = f"{value:,.2f}"
+        normalized = (units or "").strip().lower()
+        if "percent" in normalized:
+            return f"{formatted}%"
+        if "basis point" in normalized or normalized == "bps":
+            return f"{formatted} bps"
+        return formatted
+
+    @staticmethod
+    def _value_label(title: str, units: str | None) -> str:
+        normalized_title = title.lower()
+        normalized_units = (units or "").lower()
+        if "rate" in normalized_title or "percent" in normalized_units:
+            return "rate"
+        return "value"
+
+    @staticmethod
+    def _join_clauses(clauses: list[str]) -> str:
+        if not clauses:
+            return ""
+        if len(clauses) == 1:
+            return clauses[0]
+        if len(clauses) == 2:
+            return f"{clauses[0]} and {clauses[1]}"
+        return f"{', '.join(clauses[:-1])}, and {clauses[-1]}"
+
+    @staticmethod
+    def _ordinal(value: int) -> str:
+        if 10 <= value % 100 <= 20:
+            suffix = "th"
+        else:
+            suffix = {1: "st", 2: "nd", 3: "rd"}.get(value % 10, "th")
+        return f"{value}{suffix}"
+
+    @staticmethod
+    def _historical_window_label(context: HistoricalSeriesContext) -> str:
+        span_years = max(1, int(round((context.end_date - context.start_date).days / 365.25)))
+        return f"{span_years}-year"
+
+    @staticmethod
+    def _distance_qualifier(current_value: float, boundary_value: float, opposite_boundary_value: float) -> str:
+        span = abs(boundary_value - opposite_boundary_value)
+        if span <= 0:
+            return ""
+
+        gap_ratio = abs(boundary_value - current_value) / span
+        if gap_ratio >= 0.6:
+            return "well "
+        if gap_ratio <= 0.15:
+            return "just "
+        return ""
+
+    def _historical_context_sentence(self, analysis: AnalysisResult) -> str | None:
+        result = analysis.series_results[0]
+        context = result.historical_context
+        if (
+            context is None
+            or context.observation_count < 2
+            or result.latest_value is None
+        ):
+            return None
+
+        value_label = self._value_label(result.series.title, result.series.units)
+        window_label = self._historical_window_label(context)
+        clauses: list[str] = []
+
+        if context.average_value is not None:
+            if result.latest_value > context.average_value:
+                average_relationship = "above"
+            elif result.latest_value < context.average_value:
+                average_relationship = "below"
+            else:
+                average_relationship = "in line with"
+            clauses.append(
+                f"The latest {value_label} of {self._format_series_value(result.latest_value, result.series.units)} "
+                f"is {average_relationship} the {window_label} average of "
+                f"{self._format_series_value(context.average_value, result.series.units)}"
+            )
+        else:
+            clauses.append(
+                f"The latest {value_label} is {self._format_series_value(result.latest_value, result.series.units)}"
+            )
+
+        if context.percentile_rank is not None:
+            percentile = max(1, min(100, int(round(context.percentile_rank))))
+            clauses.append(f"sits in the {self._ordinal(percentile)} percentile of that window")
+
+        if (
+            context.max_value is not None
+            and context.max_date is not None
+            and context.min_value is not None
+        ):
+            if abs(result.latest_value - context.max_value) < 1e-9:
+                clauses.append("matches the high for that window")
+            else:
+                qualifier = self._distance_qualifier(
+                    result.latest_value,
+                    context.max_value,
+                    context.min_value,
+                )
+                clauses.append(
+                    f"is {qualifier}below the {context.max_date.year} peak of "
+                    f"{self._format_series_value(context.max_value, result.series.units)}"
+                )
+        elif (
+            context.min_value is not None
+            and context.min_date is not None
+            and context.max_value is not None
+        ):
+            if abs(result.latest_value - context.min_value) < 1e-9:
+                clauses.append("matches the low for that window")
+            else:
+                qualifier = self._distance_qualifier(
+                    result.latest_value,
+                    context.min_value,
+                    context.max_value,
+                )
+                clauses.append(
+                    f"is {qualifier}above the {context.min_date.year} trough of "
+                    f"{self._format_series_value(context.min_value, result.series.units)}"
+                )
+
+        summary = self._join_clauses(clauses)
+        return f"{summary}." if summary else None
 
     def write_state_gdp_comparison(self, analysis: AnalysisResult, *, normalize: bool) -> str:
         first, second = analysis.series_results
@@ -74,6 +201,9 @@ class AnswerService:
             parts.append(
                 f"The latest observation is {result.latest_value:,.2f} on {result.latest_observation_date.isoformat()}."
             )
+        historical_context_sentence = self._historical_context_sentence(analysis)
+        if historical_context_sentence:
+            parts.append(historical_context_sentence)
         if result.total_growth_pct is not None:
             parts.append(f"Total growth over the period was {result.total_growth_pct:.2f}%.")
         if normalize:

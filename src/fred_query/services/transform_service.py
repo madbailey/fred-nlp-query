@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import sqrt
 from datetime import date
 
-from fred_query.schemas.analysis import ObservationPoint
+from fred_query.schemas.analysis import HistoricalSeriesContext, ObservationPoint
 from fred_query.schemas.chart import DateSpanAnnotation
 
 
@@ -250,6 +250,58 @@ class TransformService:
             return None
 
         return ((last_point.value / first_point.value) ** (1.0 / years) - 1.0) * 100.0
+
+    @staticmethod
+    def calculate_average_value(observations: list[ObservationPoint]) -> float | None:
+        if not observations:
+            return None
+        return sum(point.value for point in observations) / len(observations)
+
+    @staticmethod
+    def calculate_percentile_rank(
+        observations: list[ObservationPoint],
+        *,
+        value: float | None = None,
+    ) -> float | None:
+        if len(observations) < 2:
+            return None
+
+        reference_value = observations[-1].value if value is None else value
+        at_or_below_count = sum(1 for point in observations if point.value <= reference_value)
+        return (at_or_below_count / len(observations)) * 100.0
+
+    @staticmethod
+    def minimum_point(observations: list[ObservationPoint]) -> ObservationPoint | None:
+        if not observations:
+            return None
+        return min(observations, key=lambda point: (point.value, point.date))
+
+    @staticmethod
+    def maximum_point(observations: list[ObservationPoint]) -> ObservationPoint | None:
+        if not observations:
+            return None
+        return max(observations, key=lambda point: (point.value, point.date))
+
+    def summarize_historical_context(
+        self,
+        observations: list[ObservationPoint],
+    ) -> HistoricalSeriesContext | None:
+        if not observations:
+            return None
+
+        minimum = self.minimum_point(observations)
+        maximum = self.maximum_point(observations)
+        return HistoricalSeriesContext(
+            start_date=observations[0].date,
+            end_date=observations[-1].date,
+            observation_count=len(observations),
+            average_value=self.calculate_average_value(observations),
+            percentile_rank=self.calculate_percentile_rank(observations),
+            min_value=minimum.value if minimum is not None else None,
+            min_date=minimum.date if minimum is not None else None,
+            max_value=maximum.value if maximum is not None else None,
+            max_date=maximum.date if maximum is not None else None,
+        )
 
     @staticmethod
     def latest_value(observations: list[ObservationPoint]) -> tuple[float | None, date | None]:
