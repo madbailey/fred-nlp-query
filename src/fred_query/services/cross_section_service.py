@@ -6,6 +6,7 @@ from fred_query.schemas.analysis import AnalysisResult, DerivedMetric, Observati
 from fred_query.schemas.intent import ComparisonMode, CrossSectionScope, GeographyType, QueryIntent
 from fred_query.schemas.resolved_series import ResolvedSeries
 from fred_query.services.answer_service import AnswerService
+from fred_query.services.cross_section_intent_service import CrossSectionIntentService
 from fred_query.services.chart_service import ChartService
 from fred_query.services.fred_client import FREDClient
 from fred_query.services.resolver_service import ResolverService, STATE_CODE_TO_NAME
@@ -26,17 +27,6 @@ class CrossSectionService:
         self.resolver_service = resolver_service or ResolverService(fred_client)
         self.chart_service = chart_service or ChartService()
         self.answer_service = answer_service or AnswerService()
-
-    @staticmethod
-    def _resolve_scope(intent: QueryIntent) -> CrossSectionScope:
-        if intent.cross_section_scope is not None:
-            return intent.cross_section_scope
-        if intent.geographies:
-            return CrossSectionScope.PROVIDED_GEOGRAPHIES
-        query_text = (intent.original_query or "").lower()
-        if "state" in query_text:
-            return CrossSectionScope.STATES
-        return CrossSectionScope.SINGLE_SERIES
 
     @staticmethod
     def _indicator_text(intent: QueryIntent) -> str:
@@ -61,19 +51,6 @@ class CrossSectionService:
         if observation_date is None:
             return "Latest available observation"
         return f"Latest observation on or before {observation_date.isoformat()}"
-
-    @staticmethod
-    def _display_limit(
-        intent: QueryIntent,
-        *,
-        scope: CrossSectionScope,
-        result_count: int,
-    ) -> int:
-        if intent.rank_limit is not None:
-            return min(intent.rank_limit, result_count)
-        if scope == CrossSectionScope.STATES and result_count > 10:
-            return 10
-        return result_count
 
     def _resolve_single_series(self, intent: QueryIntent, indicator_text: str) -> ResolvedSeries:
         if intent.series_id:
@@ -220,7 +197,8 @@ class CrossSectionService:
     def analyze(self, intent: QueryIntent) -> QueryResponse:
         response_intent = intent.model_copy(deep=True)
         response_intent.comparison_mode = ComparisonMode.CROSS_SECTION
-        scope = self._resolve_scope(response_intent)
+        CrossSectionIntentService.apply_defaults(response_intent)
+        scope = response_intent.cross_section_scope or CrossSectionScope.SINGLE_SERIES
         response_intent.cross_section_scope = scope
 
         indicator_text = self._indicator_text(response_intent)
@@ -260,7 +238,7 @@ class CrossSectionService:
             series_results,
             descending=response_intent.sort_descending,
         )
-        display_limit = self._display_limit(
+        display_limit, display_selection_basis = CrossSectionIntentService.display_limit_details(
             response_intent,
             scope=scope,
             result_count=len(ranked_results),
@@ -284,6 +262,11 @@ class CrossSectionService:
                 value=len(displayed_results),
                 unit="series",
                 description="Series shown in the ranked bar chart.",
+            ),
+            DerivedMetric(
+                name="display_selection_basis",
+                value=display_selection_basis,
+                description="Whether the displayed slice came from an explicit request, a contextual default, or the full result set.",
             ),
             DerivedMetric(
                 name="snapshot_basis",
@@ -319,8 +302,11 @@ class CrossSectionService:
         chart = self.chart_service.build_cross_section_chart(
             series_results=displayed_results,
             title=self._chart_title(scope, displayed_results, indicator_text),
-            subtitle=(
-                f"{snapshot_basis}. Showing {len(displayed_results)} of {len(ranked_results)} series."
+            subtitle=self._chart_subtitle(
+                snapshot_basis=snapshot_basis,
+                displayed_count=len(displayed_results),
+                result_count=len(ranked_results),
+                display_selection_basis=display_selection_basis,
             ),
             y_axis_title=displayed_results[0].series.units,
         )
@@ -331,3 +317,19 @@ class CrossSectionService:
             chart=chart,
             answer_text=answer_text,
         )
+
+    @staticmethod
+    def _chart_subtitle(
+        *,
+        snapshot_basis: str,
+        displayed_count: int,
+        result_count: int,
+        display_selection_basis: str,
+    ) -> str:
+        if display_selection_basis == "comparison_context":
+            return (
+                f"{snapshot_basis}. Showing {displayed_count} of {result_count} series for comparison context."
+            )
+        if display_selection_basis == "explicit_request":
+            return f"{snapshot_basis}. Showing the requested {displayed_count} of {result_count} series."
+        return f"{snapshot_basis}. Showing all {result_count} series."

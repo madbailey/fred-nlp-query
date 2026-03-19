@@ -125,6 +125,7 @@ class AnswerService:
         snapshot_basis = self._metric_value(analysis, "snapshot_basis") or "Latest available observation"
         displayed_count = self._metric_value(analysis, "displayed_series_count")
         resolved_count = self._metric_value(analysis, "resolved_series_count")
+        display_selection_basis = self._metric_value(analysis, "display_selection_basis")
         rank_label = "highest" if intent.sort_descending else "lowest"
 
         if int(resolved_count or len(analysis.series_results)) == 1:
@@ -148,11 +149,24 @@ class AnswerService:
                 f"{leader.series.geography} ranks {rank_label} at {leader.latest_value:,.2f} "
                 f"on {leader.latest_observation_date.isoformat()}."
             )
-        if resolved_count and displayed_count and int(resolved_count) > int(displayed_count):
+        if (
+            display_selection_basis == "comparison_context"
+            and resolved_count
+            and displayed_count
+            and int(resolved_count) > int(displayed_count)
+        ):
             parts.append(
-                f"The chart shows the requested top slice of {int(displayed_count)} out of {int(resolved_count)} resolved series."
+                f"The chart shows {int(displayed_count)} ranked series to provide comparison context around the leader."
+            )
+        elif (
+            resolved_count
+            and displayed_count
+            and int(resolved_count) > int(displayed_count)
+        ):
+            parts.append(
+                f"The chart shows the requested slice of {int(displayed_count)} out of {int(resolved_count)} resolved series."
             )
         else:
-            parts.append("The chart shows the ranked cross-section rather than a time-series trend.")
+            parts.append("The chart shows the full ranked cross-section rather than a time-series trend.")
         parts.append("Bars are sorted by the requested ranking direction.")
         return " ".join(parts)

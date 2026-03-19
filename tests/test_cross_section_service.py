@@ -13,48 +13,32 @@ from fred_query.services.fred_client import FREDClient
 
 
 class CrossSectionServiceTest(unittest.TestCase):
-    def _build_state_ranking_client(self) -> tuple[FREDClient, list[dict[str, str]]]:
+    def _build_state_ranking_client(
+        self,
+        state_values: dict[str, tuple[str, float]] | None = None,
+    ) -> tuple[FREDClient, list[dict[str, str]]]:
         requests: list[dict[str, str]] = []
-        metadata_payloads = {
-            "CAUR": {
-                "seriess": [
-                    {
-                        "id": "CAUR",
-                        "title": "Unemployment Rate in California",
-                        "units_short": "Percent",
-                        "frequency_short": "M",
-                        "seasonal_adjustment_short": "SA",
-                    }
-                ]
-            },
-            "TXUR": {
-                "seriess": [
-                    {
-                        "id": "TXUR",
-                        "title": "Unemployment Rate in Texas",
-                        "units_short": "Percent",
-                        "frequency_short": "M",
-                        "seasonal_adjustment_short": "SA",
-                    }
-                ]
-            },
-            "NVUR": {
-                "seriess": [
-                    {
-                        "id": "NVUR",
-                        "title": "Unemployment Rate in Nevada",
-                        "units_short": "Percent",
-                        "frequency_short": "M",
-                        "seasonal_adjustment_short": "SA",
-                    }
-                ]
-            },
+        state_values = state_values or {
+            "CA": ("California", 5.0),
+            "TX": ("Texas", 4.0),
+            "NV": ("Nevada", 6.5),
         }
-        observation_payloads = {
-            "CAUR": {"observations": [{"date": "2024-01-01", "value": "5.0"}]},
-            "TXUR": {"observations": [{"date": "2024-01-01", "value": "4.0"}]},
-            "NVUR": {"observations": [{"date": "2024-01-01", "value": "6.5"}]},
-        }
+        metadata_payloads = {}
+        observation_payloads = {}
+        for state_code, (state_name, value) in state_values.items():
+            series_id = f"{state_code}UR"
+            metadata_payloads[series_id] = {
+                "seriess": [
+                    {
+                        "id": series_id,
+                        "title": f"Unemployment Rate in {state_name}",
+                        "units_short": "Percent",
+                        "frequency_short": "M",
+                        "seasonal_adjustment_short": "SA",
+                    }
+                ]
+            }
+            observation_payloads[series_id] = {"observations": [{"date": "2024-01-01", "value": str(value)}]}
 
         def handler(request: httpx.Request) -> httpx.Response:
             requests.append(dict(request.url.params))
@@ -134,13 +118,54 @@ class CrossSectionServiceTest(unittest.TestCase):
             [result.series.geography for result in response.analysis.series_results],
             ["Nevada", "California"],
         )
-        self.assertEqual(response.chart.series[0].x, ["Nevada", "California"])
+        self.assertEqual(response.chart.series[0].x_categories, ["Nevada", "California"])
         self.assertEqual(response.chart.series[0].y, [6.5, 5.0])
         self.assertIn("Nevada ranks highest", response.answer_text)
         observation_requests = [item for item in requests if item.get("series_id") in {"CAUR", "TXUR", "NVUR"} and item.get("sort_order") == "desc"]
         self.assertEqual(len(observation_requests), 3)
         self.assertTrue(all(item.get("limit") == "1" for item in observation_requests))
         self.assertEqual(response.chart.to_plotly_dict()["data"][0]["type"], "bar")
+
+    def test_highest_state_query_defaults_to_top_ten_for_context(self) -> None:
+        state_values = {
+            "AL": ("Alabama", 3.1),
+            "AK": ("Alaska", 6.2),
+            "AZ": ("Arizona", 4.1),
+            "AR": ("Arkansas", 3.9),
+            "CA": ("California", 5.0),
+            "CO": ("Colorado", 3.4),
+            "CT": ("Connecticut", 4.0),
+            "DE": ("Delaware", 4.4),
+            "FL": ("Florida", 3.2),
+            "GA": ("Georgia", 3.3),
+            "HI": ("Hawaii", 2.8),
+            "NV": ("Nevada", 6.5),
+        }
+        client, _ = self._build_state_ranking_client(state_values)
+        service = CrossSectionService(client)
+        intent = QueryIntent(
+            task_type=TaskType.CROSS_SECTION,
+            original_query="Which state has the highest unemployment rate?",
+            indicators=["unemployment rate"],
+            search_text="unemployment rate",
+            comparison_mode=ComparisonMode.CROSS_SECTION,
+            cross_section_scope=CrossSectionScope.STATES,
+            rank_limit=1,
+        )
+
+        with patch.dict(
+            "fred_query.services.cross_section_service.STATE_CODE_TO_NAME",
+            {state_code: state_name for state_code, (state_name, _) in state_values.items()},
+            clear=True,
+        ):
+            response = service.analyze(intent)
+
+        self.assertEqual(len(response.analysis.series_results), 10)
+        self.assertEqual(response.intent.rank_limit, 10)
+        self.assertEqual(response.analysis.series_results[0].series.geography, "Nevada")
+        self.assertEqual(response.chart.series[0].x_categories[0], "Nevada")
+        self.assertIn("comparison context around the leader", response.answer_text)
+        self.assertIn("Showing 10 of 12 series for comparison context.", response.chart.subtitle or "")
 
     def test_single_series_point_in_time_snapshot_returns_single_bar(self) -> None:
         client = self._build_single_series_client()
@@ -157,7 +182,7 @@ class CrossSectionServiceTest(unittest.TestCase):
 
         self.assertEqual(response.intent.comparison_mode, ComparisonMode.CROSS_SECTION)
         self.assertEqual(response.chart.chart_type, "bar")
-        self.assertEqual(response.chart.series[0].x, ["CPIAUCSL"])
+        self.assertEqual(response.chart.series[0].x_categories, ["CPIAUCSL"])
         self.assertEqual(response.chart.series[0].y, [300.54])
         self.assertEqual(response.analysis.series_results[0].latest_observation_date, date(2023, 1, 1))
         self.assertIn("2023-01-01", response.answer_text)

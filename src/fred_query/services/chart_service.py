@@ -144,7 +144,7 @@ class ChartService:
             series=[
                 ChartTrace(
                     name=title,
-                    x=[label for label, _ in ranked_pairs],
+                    x_categories=[label for label, _ in ranked_pairs],
                     y=[value for _, value in ranked_pairs],
                     line=LineStyle(color=self._COLORS[0]),
                 )

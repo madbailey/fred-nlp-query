@@ -4,6 +4,7 @@ from openai import OpenAI
 
 from fred_query.errors import ConfigurationError, IntentParsingError
 from fred_query.schemas.intent import CrossSectionScope, QueryIntent, TaskType
+from fred_query.services.cross_section_intent_service import CrossSectionIntentService
 
 
 PARSER_INSTRUCTIONS = """You convert natural-language economic questions into a strict QueryIntent.
@@ -104,30 +105,10 @@ class OpenAIIntentParser:
         ):
             intent.clarification_target_index = 0
 
-        query_lower = query.lower()
-        ranking_terms = ("highest", "lowest", "top", "bottom", "rank")
-        if intent.task_type == TaskType.SINGLE_SERIES_LOOKUP and intent.observation_date is not None:
-            intent.task_type = TaskType.CROSS_SECTION
-            intent.cross_section_scope = CrossSectionScope.SINGLE_SERIES
-        if (
-            intent.task_type == TaskType.STATE_GDP_COMPARISON
-            and any(term in query_lower for term in ranking_terms)
-            and "state" in query_lower
-        ):
-            intent.task_type = TaskType.CROSS_SECTION
-            intent.cross_section_scope = CrossSectionScope.STATES
+        CrossSectionIntentService.promote_task_type(intent, query=query)
 
         if intent.task_type == TaskType.CROSS_SECTION:
-            if intent.cross_section_scope is None:
-                if intent.geographies:
-                    intent.cross_section_scope = CrossSectionScope.PROVIDED_GEOGRAPHIES
-                elif "state" in query_lower:
-                    intent.cross_section_scope = CrossSectionScope.STATES
-                else:
-                    intent.cross_section_scope = CrossSectionScope.SINGLE_SERIES
-
-            if any(term in query_lower for term in ("lowest", "bottom", "least", "smallest")):
-                intent.sort_descending = False
+            CrossSectionIntentService.apply_defaults(intent, query=query)
 
             if (
                 not intent.series_id

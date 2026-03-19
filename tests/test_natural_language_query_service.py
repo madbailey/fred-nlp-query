@@ -208,7 +208,7 @@ class _FakeCrossSectionService:
                 title="State Ranking: Unemployment Rate",
                 x_axis=AxisSpec(title="Series"),
                 y_axis=AxisSpec(title="Percent"),
-                series=[ChartTrace(name="ranking", x=["California"], y=[5.0])],
+                series=[ChartTrace(name="ranking", x_categories=["California"], y=[5.0])],
                 source_note="Source: FRED, Federal Reserve Bank of St. Louis",
             ),
             answer_text="Completed cross-section analysis.",
