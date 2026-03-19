@@ -119,7 +119,10 @@ def create_app() -> FastAPI:
         request: AskRequest,
         service: NaturalLanguageQueryService = Depends(get_natural_language_query_service),
     ) -> ApiRoutedQueryResponse:
-        response = service.ask(request.query)
+        response = service.ask(
+            request.query,
+            selected_series_id=request.selected_series_id,
+        )
         return ApiRoutedQueryResponse.from_routed_response(response)
 
     @app.post("/api/compare/state-gdp", response_model=ApiQueryResponse)

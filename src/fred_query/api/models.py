@@ -14,6 +14,7 @@ class AskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     query: str
+    selected_series_id: str | None = None
 
     @field_validator("query")
     @classmethod
@@ -22,6 +23,14 @@ class AskRequest(BaseModel):
         if not stripped:
             raise ValueError("Query must not be blank.")
         return stripped
+
+    @field_validator("selected_series_id")
+    @classmethod
+    def validate_selected_series_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class StateGDPCompareRequest(BaseModel):

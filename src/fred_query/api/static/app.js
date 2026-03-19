@@ -2,6 +2,9 @@ const queryForm = document.getElementById("query-form");
 const queryInput = document.getElementById("query-input");
 const submitButton = document.getElementById("submit-button");
 const suggestionButtons = Array.from(document.querySelectorAll(".suggestion"));
+const clarificationInline = document.getElementById("clarification-inline");
+const clarificationQuestion = document.getElementById("clarification-question");
+const clarificationOptions = document.getElementById("clarification-options");
 const statusRow = document.getElementById("status-row");
 const statusPill = document.getElementById("status-pill");
 const statusText = document.getElementById("status-text");
@@ -16,8 +19,9 @@ const chartElement = document.getElementById("chart");
 const sourceNote = document.getElementById("source-note");
 const seriesPanel = document.getElementById("series-panel");
 const seriesGrid = document.getElementById("series-grid");
-const clarificationPanel = document.getElementById("clarification-panel");
-const candidateList = document.getElementById("candidate-list");
+
+let pendingClarification = null;
+let selectedClarificationSeriesId = null;
 
 function setHidden(element, hidden) {
     element.classList.toggle("hidden", hidden);
@@ -84,6 +88,10 @@ function showError(message) {
     setHidden(errorBanner, false);
 }
 
+function getClarificationButtons() {
+    return Array.from(clarificationOptions.querySelectorAll(".clarification-option"));
+}
+
 function extractErrorMessage(payload, fallbackMessage) {
     if (payload?.error?.message) {
         return payload.error.message;
@@ -105,17 +113,26 @@ function extractErrorMessage(payload, fallbackMessage) {
     return fallbackMessage;
 }
 
-function clearResults() {
+function clearClarification() {
+    pendingClarification = null;
+    selectedClarificationSeriesId = null;
+    clarificationQuestion.textContent = "";
+    clarificationOptions.innerHTML = "";
+    setHidden(clarificationInline, true);
+}
+
+function clearResults({ keepClarification = false } = {}) {
     setHidden(results, true);
     answerText.textContent = "";
     intentSummary.innerHTML = "";
     warningList.innerHTML = "";
     seriesGrid.innerHTML = "";
-    candidateList.innerHTML = "";
     sourceNote.textContent = "";
     setHidden(chartPanel, true);
     setHidden(seriesPanel, true);
-    setHidden(clarificationPanel, true);
+    if (!keepClarification) {
+        clearClarification();
+    }
     if (window.Plotly) {
         window.Plotly.purge(chartElement);
     }
@@ -149,7 +166,10 @@ function setLoading(isLoading) {
     suggestionButtons.forEach((button) => {
         button.disabled = isLoading;
     });
-    submitButton.textContent = isLoading ? "Running..." : "Run Query";
+    getClarificationButtons().forEach((button) => {
+        button.disabled = isLoading;
+    });
+    submitButton.textContent = isLoading ? "Running..." : "Ask";
     if (isLoading) {
         updateStatus(
             "working",
@@ -208,7 +228,7 @@ function renderChart(figure, response) {
         margin: { l: 58, r: 24, t: 76, b: 52 },
         font: {
             family: '"IBM Plex Sans", "Segoe UI", sans-serif',
-            color: "#173044",
+            color: "#1a1a1a",
         },
         legend: {
             orientation: "h",
@@ -291,33 +311,41 @@ function renderSeriesResults(seriesResults) {
     setHidden(seriesPanel, false);
 }
 
-function renderCandidates(candidates) {
-    if (!candidates || candidates.length === 0) {
-        setHidden(clarificationPanel, true);
-        candidateList.innerHTML = "";
+function formatClarificationMeta(candidate) {
+    return [candidate.series_id, candidate.frequency, candidate.units]
+        .filter(Boolean)
+        .join(" / ");
+}
+
+function renderClarificationOptions(response, query) {
+    const candidates = (response.candidate_series || []).slice(0, 4);
+    if (response.status !== "needs_clarification" || candidates.length === 0 || !query) {
+        clearClarification();
         return;
     }
 
-    candidateList.innerHTML = candidates
+    pendingClarification = {
+        query,
+        candidates,
+        question: response.answer_text || "Pick the series you meant.",
+    };
+    clarificationQuestion.textContent = pendingClarification.question;
+    clarificationOptions.innerHTML = candidates
         .map((item) => `
-            <article class="candidate-card">
-                <header>
-                    <div class="series-badges">
-                        <span class="badge">${escapeHtml(item.series_id)}</span>
-                        ${item.frequency ? `<span class="badge">${escapeHtml(item.frequency)}</span>` : ""}
-                        ${item.units ? `<span class="badge">${escapeHtml(item.units)}</span>` : ""}
-                    </div>
-                    <h3>${escapeHtml(item.title)}</h3>
-                </header>
-                ${item.notes ? `<p class="clarification-copy">${escapeHtml(item.notes)}</p>` : ""}
-                <a class="resource-link" href="${escapeHtml(item.source_url)}" target="_blank" rel="noreferrer">Inspect series</a>
-            </article>
+            <button
+                type="button"
+                class="clarification-option ${selectedClarificationSeriesId === item.series_id ? "is-active" : ""}"
+                data-series-id="${escapeHtml(item.series_id)}"
+            >
+                <span class="clarification-option-title">${escapeHtml(item.title)}</span>
+                <span class="clarification-option-meta">${escapeHtml(formatClarificationMeta(item))}</span>
+            </button>
         `)
         .join("");
-    setHidden(clarificationPanel, false);
+    setHidden(clarificationInline, false);
 }
 
-function renderResponse(response) {
+function renderResponse(response, query) {
     setHidden(results, false);
     answerHeading.textContent = response.status === "needs_clarification"
         ? "Clarification needed"
@@ -330,20 +358,14 @@ function renderResponse(response) {
     renderWarnings(response.result?.analysis?.warnings || []);
     renderChart(response.plotly_figure, response);
     renderSeriesResults(response.result?.analysis?.series_results || []);
-    renderCandidates(response.candidate_series || []);
+    renderClarificationOptions(response, query);
 }
 
-async function handleSubmit(event) {
-    event.preventDefault();
-    const query = queryInput.value.trim();
-
-    if (!query) {
-        showError("Enter a FRED question first.");
-        return;
-    }
-
+async function submitQuery({ query, selectedSeriesId = null, preserveCurrentResults = false }) {
     clearError();
-    clearResults();
+    if (!preserveCurrentResults) {
+        clearResults();
+    }
     setLoading(true);
 
     try {
@@ -352,7 +374,10 @@ async function handleSubmit(event) {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ query }),
+            body: JSON.stringify({
+                query,
+                selected_series_id: selectedSeriesId,
+            }),
         });
 
         const text = await response.text();
@@ -369,7 +394,7 @@ async function handleSubmit(event) {
             throw new Error(extractErrorMessage(payload, "The query request failed."));
         }
 
-        renderResponse(payload);
+        renderResponse(payload, query);
     } catch (error) {
         showError(error instanceof Error ? error.message : "Unexpected error.");
         updateStatus(null, "");
@@ -378,10 +403,52 @@ async function handleSubmit(event) {
     }
 }
 
+async function handleSubmit(event) {
+    event.preventDefault();
+    const query = queryInput.value.trim();
+
+    if (!query) {
+        showError("Enter a FRED question first.");
+        return;
+    }
+
+    await submitQuery({ query });
+}
+
 queryForm.addEventListener("submit", handleSubmit);
 suggestionButtons.forEach((button) => {
     button.addEventListener("click", () => {
         queryInput.value = button.dataset.query || "";
         queryForm.requestSubmit();
     });
+});
+clarificationOptions.addEventListener("click", (event) => {
+    const option = event.target.closest(".clarification-option");
+    if (!option || !pendingClarification) {
+        return;
+    }
+
+    selectedClarificationSeriesId = option.dataset.seriesId || null;
+    renderClarificationOptions(
+        {
+            status: "needs_clarification",
+            answer_text: pendingClarification.question,
+            candidate_series: pendingClarification.candidates,
+        },
+        pendingClarification.query,
+    );
+    submitQuery({
+        query: pendingClarification.query,
+        selectedSeriesId: selectedClarificationSeriesId,
+        preserveCurrentResults: true,
+    });
+});
+queryInput.addEventListener("input", () => {
+    if (!pendingClarification) {
+        return;
+    }
+
+    if (queryInput.value.trim() !== pendingClarification.query) {
+        clearClarification();
+    }
 });

@@ -87,8 +87,10 @@ def _build_query_response() -> QueryResponse:
 class _FakeNaturalLanguageQueryService:
     def __init__(self, response: RoutedQueryResponse) -> None:
         self.response = response
+        self.last_call: tuple[str, str | None] | None = None
 
-    def ask(self, query: str) -> RoutedQueryResponse:
+    def ask(self, query: str, *, selected_series_id: str | None = None) -> RoutedQueryResponse:
+        self.last_call = (query, selected_series_id)
         return self.response
 
 
@@ -101,7 +103,7 @@ class _FailingNaturalLanguageQueryService:
     def __init__(self, exc: Exception) -> None:
         self.exc = exc
 
-    def ask(self, query: str) -> RoutedQueryResponse:
+    def ask(self, query: str, *, selected_series_id: str | None = None) -> RoutedQueryResponse:
         raise self.exc
 
 
@@ -132,7 +134,7 @@ class APITest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
-        self.assertIn("Ask economic questions. Get inspectable answers.", response.text)
+        self.assertIn("Ask a question about the economy.", response.text)
 
     def test_static_assets(self) -> None:
         js_response = self.client.get("/static/app.js")
@@ -160,6 +162,24 @@ class APITest(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
+
+    def test_ask_forwards_selected_series_id(self) -> None:
+        routed = RoutedQueryResponse(
+            status=RoutedQueryStatus.COMPLETED,
+            intent=_build_query_response().intent,
+            answer_text="Completed comparison.",
+            query_response=_build_query_response(),
+        )
+        service = _FakeNaturalLanguageQueryService(routed)
+        app.dependency_overrides[get_natural_language_query_service] = lambda: service
+
+        response = self.client.post(
+            "/api/ask",
+            json={"query": "Show inflation", "selected_series_id": "CPIAUCSL"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(service.last_call, ("Show inflation", "CPIAUCSL"))
 
     def test_ask_clarification(self) -> None:
         routed = RoutedQueryResponse(
