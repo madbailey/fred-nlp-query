@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class TaskType(str, Enum):
     SINGLE_SERIES_LOOKUP = "single_series_lookup"
+    CROSS_SECTION = "cross_section"
     STATE_GDP_COMPARISON = "state_gdp_comparison"
     MULTI_SERIES_COMPARISON = "multi_series_comparison"
     RELATIONSHIP_ANALYSIS = "relationship_analysis"
@@ -15,6 +16,7 @@ class TaskType(str, Enum):
 
 class ComparisonMode(str, Enum):
     NONE = "none"
+    CROSS_SECTION = "cross_section"
     STATE_VS_STATE = "state_vs_state"
     MULTI_SERIES = "multi_series"
     RELATIONSHIP = "relationship"
@@ -31,6 +33,12 @@ class GeographyType(str, Enum):
     STATE = "state"
     NATIONAL = "national"
     REGION = "region"
+
+
+class CrossSectionScope(str, Enum):
+    SINGLE_SERIES = "single_series"
+    PROVIDED_GEOGRAPHIES = "provided_geographies"
+    STATES = "states"
 
 
 class Geography(BaseModel):
@@ -51,10 +59,14 @@ class QueryIntent(BaseModel):
     comparison_mode: ComparisonMode = ComparisonMode.NONE
     start_date: date | None = None
     end_date: date | None = None
+    observation_date: date | None = None
     frequency: str | None = None
     transform: TransformType = TransformType.LEVEL
     normalization: bool = False
     units_preference: str | None = None
+    cross_section_scope: CrossSectionScope | None = None
+    rank_limit: int | None = Field(default=None, ge=1, le=100)
+    sort_descending: bool = True
     needs_latest_value: bool = True
     needs_chart: bool = True
     needs_revision_analysis: bool = False

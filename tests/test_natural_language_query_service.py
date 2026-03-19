@@ -5,7 +5,15 @@ import unittest
 
 from fred_query.schemas.analysis import AnalysisResult, QueryResponse, RoutedQueryStatus, SeriesAnalysis
 from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace
-from fred_query.schemas.intent import ComparisonMode, Geography, GeographyType, QueryIntent, TaskType, TransformType
+from fred_query.schemas.intent import (
+    ComparisonMode,
+    CrossSectionScope,
+    Geography,
+    GeographyType,
+    QueryIntent,
+    TaskType,
+    TransformType,
+)
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesSearchMatch
 from fred_query.services.natural_language_query_service import NaturalLanguageQueryService
 
@@ -170,6 +178,43 @@ class _FakeSingleSeriesService:
         )
 
 
+class _FakeCrossSectionService:
+    def analyze(self, intent: QueryIntent) -> QueryResponse:
+        series = ResolvedSeries(
+            series_id="CAUR",
+            title="Unemployment Rate in California",
+            geography="California",
+            indicator="unemployment_rate",
+            units="Percent",
+            frequency="M",
+            resolution_reason="fixture",
+            source_url="https://fred.stlouisfed.org/series/CAUR",
+        )
+        return QueryResponse(
+            intent=intent,
+            analysis=AnalysisResult(
+                series_results=[
+                    SeriesAnalysis(
+                        series=series,
+                        latest_value=5.0,
+                        latest_observation_date=date(2024, 1, 1),
+                    )
+                ],
+                coverage_start=date(2024, 1, 1),
+                coverage_end=date(2024, 1, 1),
+            ),
+            chart=ChartSpec(
+                chart_type="bar",
+                title="State Ranking: Unemployment Rate",
+                x_axis=AxisSpec(title="Series"),
+                y_axis=AxisSpec(title="Percent"),
+                series=[ChartTrace(name="ranking", x_categories=["California"], y=[5.0])],
+                source_note="Source: FRED, Federal Reserve Bank of St. Louis",
+            ),
+            answer_text="Completed cross-section analysis.",
+        )
+
+
 class _FakeRelationshipService:
     def analyze(self, intent: QueryIntent) -> QueryResponse:
         first = ResolvedSeries(
@@ -230,6 +275,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
             parser=_FakeParser(intent),
             fred_client=_FakeFREDClient(),
             state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
             single_series_service=_FakeSingleSeriesService(),
             relationship_service=_FakeRelationshipService(),
         )
@@ -250,6 +296,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
             parser=_FakeParser(intent),
             fred_client=_FakeFREDClient(),
             state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
             single_series_service=_FakeSingleSeriesService(),
             relationship_service=_FakeRelationshipService(),
         )
@@ -271,6 +318,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
             parser=_FakeParser(intent),
             fred_client=_FakeFREDClient(),
             state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
             single_series_service=_FakeSingleSeriesService(),
             relationship_service=_FakeRelationshipService(),
         )
@@ -293,6 +341,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
             parser=_FakeParser(intent),
             fred_client=_FakeFREDClient(),
             state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
             single_series_service=_FakeSingleSeriesService(),
             relationship_service=_FakeRelationshipService(),
         )
@@ -317,6 +366,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
             parser=_FakeParser(intent),
             fred_client=_InflationClarificationFREDClient(),
             state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
             single_series_service=_FakeSingleSeriesService(),
             relationship_service=_FakeRelationshipService(),
         )
@@ -334,12 +384,37 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
             parser=_FailingParser(),
             fred_client=_FakeFREDClient(),
             state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
             single_series_service=_FakeSingleSeriesService(),
             relationship_service=_FakeRelationshipService(),
         )
 
         with self.assertRaises(RuntimeError):
             service.ask("How has California GDP compared to Texas since 2019?")
+
+    def test_routes_completed_cross_section_analysis(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.CROSS_SECTION,
+            indicators=["unemployment rate"],
+            search_text="unemployment rate",
+            comparison_mode=ComparisonMode.CROSS_SECTION,
+            cross_section_scope=CrossSectionScope.STATES,
+            rank_limit=10,
+        )
+        service = NaturalLanguageQueryService(
+            parser=_FakeParser(intent),
+            fred_client=_FakeFREDClient(),
+            state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
+            single_series_service=_FakeSingleSeriesService(),
+            relationship_service=_FakeRelationshipService(),
+        )
+
+        response = service.ask("Rank the top 10 states by unemployment rate.")
+
+        self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertEqual(response.answer_text, "Completed cross-section analysis.")
+        self.assertEqual(response.query_response.chart.chart_type, "bar")
 
 
 if __name__ == "__main__":

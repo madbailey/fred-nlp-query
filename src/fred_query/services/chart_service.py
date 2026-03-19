@@ -118,3 +118,36 @@ class ChartService:
             series=traces,
             source_note="Source: FRED, Federal Reserve Bank of St. Louis",
         )
+
+    def build_cross_section_chart(
+        self,
+        *,
+        series_results: list[SeriesAnalysis],
+        title: str,
+        subtitle: str,
+        y_axis_title: str,
+    ) -> ChartSpec:
+        ranked_pairs = [
+            (
+                result.series.geography if result.series.geography != "Unspecified" else result.series.series_id,
+                round(result.latest_value, 4),
+            )
+            for result in series_results
+            if result.latest_value is not None
+        ]
+        return ChartSpec(
+            chart_type="bar",
+            title=title,
+            subtitle=subtitle,
+            x_axis=AxisSpec(title="Series"),
+            y_axis=AxisSpec(title=y_axis_title),
+            series=[
+                ChartTrace(
+                    name=title,
+                    x_categories=[label for label, _ in ranked_pairs],
+                    y=[value for _, value in ranked_pairs],
+                    line=LineStyle(color=self._COLORS[0]),
+                )
+            ],
+            source_note="Source: FRED, Federal Reserve Bank of St. Louis",
+        )

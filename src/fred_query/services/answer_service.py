@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fred_query.schemas.analysis import AnalysisResult
+from fred_query.schemas.intent import QueryIntent
 
 
 class AnswerService:
@@ -117,4 +118,55 @@ class AnswerService:
             )
         parts.append("This is an association estimate, not evidence of causation.")
         parts.append(f"Series used: {first.series.series_id} and {second.series.series_id}.")
+        return " ".join(parts)
+
+    def write_cross_section(self, analysis: AnalysisResult, *, intent: QueryIntent) -> str:
+        leader = analysis.series_results[0]
+        snapshot_basis = self._metric_value(analysis, "snapshot_basis") or "Latest available observation"
+        displayed_count = self._metric_value(analysis, "displayed_series_count")
+        resolved_count = self._metric_value(analysis, "resolved_series_count")
+        display_selection_basis = self._metric_value(analysis, "display_selection_basis")
+        rank_label = "highest" if intent.sort_descending else "lowest"
+
+        if int(resolved_count or len(analysis.series_results)) == 1:
+            parts = [
+                f"Retrieved a point-in-time cross-section for {leader.series.title}.",
+            ]
+            if leader.latest_value is not None and leader.latest_observation_date is not None:
+                parts.append(
+                    f"The observed value is {leader.latest_value:,.2f} on {leader.latest_observation_date.isoformat()}."
+                )
+            parts.append(f"Observation basis: {snapshot_basis}.")
+            parts.append(f"Series used: {leader.series.series_id}.")
+            return " ".join(parts)
+
+        parts = [
+            f"Ranked {displayed_count or len(analysis.series_results)} series by their {rank_label} value.",
+            f"Observation basis: {snapshot_basis}.",
+        ]
+        if leader.latest_value is not None and leader.latest_observation_date is not None:
+            parts.append(
+                f"{leader.series.geography} ranks {rank_label} at {leader.latest_value:,.2f} "
+                f"on {leader.latest_observation_date.isoformat()}."
+            )
+        if (
+            display_selection_basis == "comparison_context"
+            and resolved_count
+            and displayed_count
+            and int(resolved_count) > int(displayed_count)
+        ):
+            parts.append(
+                f"The chart shows {int(displayed_count)} ranked series to provide comparison context around the leader."
+            )
+        elif (
+            resolved_count
+            and displayed_count
+            and int(resolved_count) > int(displayed_count)
+        ):
+            parts.append(
+                f"The chart shows the requested slice of {int(displayed_count)} out of {int(resolved_count)} resolved series."
+            )
+        else:
+            parts.append("The chart shows the full ranked cross-section rather than a time-series trend.")
+        parts.append("Bars are sorted by the requested ranking direction.")
         return " ".join(parts)

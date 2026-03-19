@@ -1,6 +1,7 @@
 from fred_query.services.answer_service import AnswerService
 from fred_query.services.chart_service import ChartService
 from fred_query.services.comparison_service import StateGDPComparisonService
+from fred_query.services.cross_section_service import CrossSectionService
 from fred_query.services.fred_client import FREDAPIError, FREDClient
 from fred_query.services.intent_service import IntentService
 from fred_query.services.natural_language_query_service import NaturalLanguageQueryService
@@ -13,6 +14,7 @@ from fred_query.services.transform_service import TransformService
 __all__ = [
     "AnswerService",
     "ChartService",
+    "CrossSectionService",
     "FREDAPIError",
     "FREDClient",
     "IntentService",

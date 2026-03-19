@@ -24,6 +24,8 @@ class ChartTrace(BaseModel):
 
     name: str
     x: list[date] = Field(default_factory=list)
+    # Bar charts use categorical x-axis labels here instead of widening `x` to mixed date/string values.
+    x_categories: list[str] = Field(default_factory=list)
     y: list[float] = Field(default_factory=list)
     mode: str = "lines"
     line: LineStyle | None = None
@@ -63,12 +65,28 @@ class ChartSpec(BaseModel):
                 if trace.line.dash is not None:
                     line["dash"] = trace.line.dash
 
+            x_values = [point.isoformat() for point in trace.x]
+            if self.chart_type == "bar":
+                marker = {}
+                if trace.line is not None and trace.line.color is not None:
+                    marker["color"] = trace.line.color
+                data.append(
+                    {
+                        "type": self.chart_type,
+                        "name": trace.name,
+                        "x": trace.x_categories,
+                        "y": trace.y,
+                        "marker": marker,
+                    }
+                )
+                continue
+
             data.append(
                 {
                     "type": self.chart_type,
                     "name": trace.name,
                     "mode": trace.mode,
-                    "x": [point.isoformat() for point in trace.x],
+                    "x": x_values,
                     "y": trace.y,
                     "line": line,
                 }
