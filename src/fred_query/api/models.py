@@ -14,6 +14,7 @@ class AskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     query: str
+    session_id: str | None = None
     selected_series_id: str | None = None
     selected_series_ids: list[str | None] = Field(default_factory=list)
 
@@ -24,6 +25,14 @@ class AskRequest(BaseModel):
         if not stripped:
             raise ValueError("Query must not be blank.")
         return stripped
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
     @field_validator("selected_series_id")
     @classmethod
@@ -95,6 +104,7 @@ class ApiQueryResponse(BaseModel):
 class ApiRoutedQueryResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    session_id: str
     status: RoutedQueryStatus
     answer_text: str
     intent: QueryIntent
@@ -103,8 +113,14 @@ class ApiRoutedQueryResponse(BaseModel):
     plotly_figure: dict[str, Any] | None = None
 
     @classmethod
-    def from_routed_response(cls, response: RoutedQueryResponse) -> "ApiRoutedQueryResponse":
+    def from_routed_response(
+        cls,
+        response: RoutedQueryResponse,
+        *,
+        session_id: str,
+    ) -> "ApiRoutedQueryResponse":
         return cls(
+            session_id=session_id,
             status=response.status,
             answer_text=response.answer_text,
             intent=response.intent,

@@ -11,10 +11,17 @@ from fastapi.staticfiles import StaticFiles
 from fred_query.errors import ConfigurationError, UpstreamServiceError
 from fred_query.api.models import ApiQueryResponse, ApiRoutedQueryResponse, AskRequest, StateGDPCompareRequest
 from fred_query.config import Settings, get_settings
-from fred_query.services import FREDClient, NaturalLanguageQueryService, OpenAIIntentParser, StateGDPComparisonService
+from fred_query.services import (
+    FREDClient,
+    NaturalLanguageQueryService,
+    OpenAIIntentParser,
+    QuerySessionService,
+    StateGDPComparisonService,
+)
 
 STATIC_DIR = Path(__file__).parent / "static"
 LOGGER = logging.getLogger(__name__)
+QUERY_SESSION_SERVICE = QuerySessionService()
 
 
 def get_app_settings() -> Settings:
@@ -52,6 +59,10 @@ def get_state_gdp_comparison_service(
     fred_client: FREDClient = Depends(get_fred_client),
 ) -> StateGDPComparisonService:
     return StateGDPComparisonService(fred_client)
+
+
+def get_query_session_service() -> QuerySessionService:
+    return QUERY_SESSION_SERVICE
 
 
 def create_app() -> FastAPI:
@@ -118,13 +129,21 @@ def create_app() -> FastAPI:
     def ask(
         request: AskRequest,
         service: NaturalLanguageQueryService = Depends(get_natural_language_query_service),
+        query_session_service: QuerySessionService = Depends(get_query_session_service),
     ) -> ApiRoutedQueryResponse:
+        session = query_session_service.get_or_create(request.session_id)
         response = service.ask(
             request.query,
             selected_series_id=request.selected_series_id,
             selected_series_ids=request.selected_series_ids,
+            session_context=session,
         )
-        return ApiRoutedQueryResponse.from_routed_response(response)
+        query_session_service.store_turn(
+            session_id=session.session_id,
+            query=request.query,
+            response=response,
+        )
+        return ApiRoutedQueryResponse.from_routed_response(response, session_id=session.session_id)
 
     @app.post("/api/compare/state-gdp", response_model=ApiQueryResponse)
     def compare_state_gdp(

@@ -206,6 +206,9 @@ class CrossSectionService:
         response_intent.observation_date = observation_date
 
         resolved_series = self._resolve_series(response_intent, scope, indicator_text)
+        if scope == CrossSectionScope.SINGLE_SERIES and resolved_series:
+            response_intent.series_id = resolved_series[0].series_id
+            response_intent.search_text = response_intent.search_text or indicator_text
         series_results: list[SeriesAnalysis] = []
         warnings: list[str] = []
 

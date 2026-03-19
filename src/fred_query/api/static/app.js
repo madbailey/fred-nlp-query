@@ -1,6 +1,8 @@
 const queryForm = document.getElementById("query-form");
 const queryInput = document.getElementById("query-input");
 const submitButton = document.getElementById("submit-button");
+const resetSessionButton = document.getElementById("reset-session-button");
+const sessionSummary = document.getElementById("session-summary");
 const suggestionButtons = Array.from(document.querySelectorAll(".suggestion"));
 const clarificationInline = document.getElementById("clarification-inline");
 const clarificationQuestion = document.getElementById("clarification-question");
@@ -23,8 +25,42 @@ const sourceNote = document.getElementById("source-note");
 const seriesPanel = document.getElementById("series-panel");
 const seriesGrid = document.getElementById("series-grid");
 
+const SESSION_STORAGE_KEY = "fred-query-session-id";
+
 let pendingClarification = null;
 let selectedClarificationSeriesId = null;
+let activeSessionId = loadStoredSessionId();
+
+function loadStoredSessionId() {
+    try {
+        return window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function setActiveSessionId(sessionId) {
+    activeSessionId = sessionId || null;
+    try {
+        if (activeSessionId) {
+            window.sessionStorage.setItem(SESSION_STORAGE_KEY, activeSessionId);
+        } else {
+            window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        }
+    } catch {
+        return;
+    }
+}
+
+function updateSessionSummary() {
+    if (!sessionSummary) {
+        return;
+    }
+
+    sessionSummary.textContent = activeSessionId
+        ? "Conversation memory is active. Follow-up prompts reuse the last resolved context."
+        : "Start a query to create a conversation with follow-up memory.";
+}
 
 function setHidden(element, hidden) {
     element.classList.toggle("hidden", hidden);
@@ -173,6 +209,7 @@ function updateStatus(state, message) {
 function setLoading(isLoading) {
     submitButton.disabled = isLoading;
     queryInput.disabled = isLoading;
+    resetSessionButton.disabled = isLoading;
     suggestionButtons.forEach((button) => {
         button.disabled = isLoading;
     });
@@ -423,6 +460,7 @@ async function submitQuery({ query, selectedSeriesIds = [], preserveCurrentResul
             },
             body: JSON.stringify({
                 query,
+                session_id: activeSessionId,
                 selected_series_id: selectedSeriesIds.find((value) => Boolean(value)) || null,
                 selected_series_ids: selectedSeriesIds,
             }),
@@ -442,6 +480,10 @@ async function submitQuery({ query, selectedSeriesIds = [], preserveCurrentResul
             throw new Error(extractErrorMessage(payload, "The query request failed."));
         }
 
+        if (payload.session_id) {
+            setActiveSessionId(payload.session_id);
+            updateSessionSummary();
+        }
         renderResponse(payload, query);
     } catch (error) {
         showError(error instanceof Error ? error.message : "Unexpected error.");
@@ -463,7 +505,19 @@ async function handleSubmit(event) {
     await submitQuery({ query });
 }
 
+function resetConversation() {
+    setActiveSessionId(null);
+    updateSessionSummary();
+    clearError();
+    clearResults();
+    updateStatus(null, "");
+}
+
 queryForm.addEventListener("submit", handleSubmit);
+resetSessionButton.addEventListener("click", () => {
+    resetConversation();
+    queryInput.focus();
+});
 suggestionButtons.forEach((button) => {
     button.addEventListener("click", () => {
         queryInput.value = button.dataset.query || "";
@@ -504,3 +558,5 @@ queryInput.addEventListener("input", () => {
         clearClarification();
     }
 });
+
+updateSessionSummary();

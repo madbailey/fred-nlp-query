@@ -107,12 +107,23 @@ class RelationshipAnalysisService:
         )
 
     def analyze(self, intent: QueryIntent) -> QueryResponse:
+        response_intent = intent.model_copy(deep=True)
         resolved_series: list[ResolvedSeries] = []
         metadata_items: list[SeriesMetadata] = []
         for index in range(2):
             resolved, metadata = self._resolve_series(intent, index)
             resolved_series.append(resolved)
             metadata_items.append(metadata)
+        response_intent.series_ids = [metadata.series_id for metadata in metadata_items]
+        response_intent.search_texts = [
+            self._search_text_for_index(intent, index) or metadata.title
+            for index, metadata in enumerate(metadata_items)
+        ]
+        if not response_intent.indicators:
+            response_intent.indicators = [
+                self._indicator_for_index(intent, index, metadata.title)
+                for index, metadata in enumerate(metadata_items)
+            ]
 
         frequency_code, frequency_label, periods_per_year, lag_unit = (
             self.transform_service.choose_relationship_frequency(
@@ -288,4 +299,4 @@ class RelationshipAnalysisService:
             end_date=aligned_first[-1].date,
         )
         answer_text = self.answer_service.write_relationship_analysis(analysis)
-        return QueryResponse(intent=intent, analysis=analysis, chart=chart, answer_text=answer_text)
+        return QueryResponse(intent=response_intent, analysis=analysis, chart=chart, answer_text=answer_text)

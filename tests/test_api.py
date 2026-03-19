@@ -21,7 +21,7 @@ from fred_query.schemas.analysis import (
 from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace
 from fred_query.schemas.intent import ComparisonMode, Geography, GeographyType, QueryIntent, TaskType, TransformType
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesSearchMatch
-from fred_query.services import FREDAPIError
+from fred_query.services import FREDAPIError, QuerySession
 
 
 def _build_query_response() -> QueryResponse:
@@ -87,7 +87,7 @@ def _build_query_response() -> QueryResponse:
 class _FakeNaturalLanguageQueryService:
     def __init__(self, response: RoutedQueryResponse) -> None:
         self.response = response
-        self.last_call: tuple[str, str | None, list[str | None] | None] | None = None
+        self.last_call: tuple[str, str | None, list[str | None] | None, QuerySession | None] | None = None
 
     def ask(
         self,
@@ -95,8 +95,18 @@ class _FakeNaturalLanguageQueryService:
         *,
         selected_series_id: str | None = None,
         selected_series_ids: list[str | None] | None = None,
+        session_context: QuerySession | None = None,
     ) -> RoutedQueryResponse:
-        self.last_call = (query, selected_series_id, selected_series_ids)
+        session_snapshot = None
+        if session_context is not None:
+            session_snapshot = QuerySession(
+                session_id=session_context.session_id,
+                created_at=session_context.created_at,
+                updated_at=session_context.updated_at,
+                last_query=session_context.last_query,
+                last_response=session_context.last_response,
+            )
+        self.last_call = (query, selected_series_id, selected_series_ids, session_snapshot)
         return self.response
 
 
@@ -115,6 +125,7 @@ class _FailingNaturalLanguageQueryService:
         *,
         selected_series_id: str | None = None,
         selected_series_ids: list[str | None] | None = None,
+        session_context: QuerySession | None = None,
     ) -> RoutedQueryResponse:
         raise self.exc
 
@@ -173,6 +184,7 @@ class APITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "completed")
+        self.assertTrue(payload["session_id"])
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
 
     def test_ask_forwards_selected_series_id(self) -> None:
@@ -191,7 +203,8 @@ class APITest(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(service.last_call, ("Show inflation", "CPIAUCSL", ["CPIAUCSL"]))
+        self.assertEqual(service.last_call[:3], ("Show inflation", "CPIAUCSL", ["CPIAUCSL"]))
+        self.assertIsNotNone(service.last_call[3])
 
     def test_ask_forwards_selected_series_ids(self) -> None:
         routed = RoutedQueryResponse(
@@ -209,7 +222,8 @@ class APITest(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(service.last_call, ("Compare oil and inflation", None, [None, "CPIAUCSL"]))
+        self.assertEqual(service.last_call[:3], ("Compare oil and inflation", None, [None, "CPIAUCSL"]))
+        self.assertIsNotNone(service.last_call[3])
 
     def test_ask_clarification(self) -> None:
         routed = RoutedQueryResponse(
@@ -235,7 +249,36 @@ class APITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "needs_clarification")
+        self.assertTrue(payload["session_id"])
         self.assertEqual(payload["candidate_series"][0]["series_id"], "CPIAUCSL")
+
+    def test_ask_reuses_session_id_for_follow_up(self) -> None:
+        routed = RoutedQueryResponse(
+            status=RoutedQueryStatus.COMPLETED,
+            intent=_build_query_response().intent,
+            answer_text="Completed comparison.",
+            query_response=_build_query_response(),
+        )
+        service = _FakeNaturalLanguageQueryService(routed)
+        app.dependency_overrides[get_natural_language_query_service] = lambda: service
+
+        first = self.client.post("/api/ask", json={"query": "Show inflation"})
+
+        self.assertEqual(first.status_code, 200)
+        session_id = first.json()["session_id"]
+        self.assertTrue(session_id)
+
+        second = self.client.post(
+            "/api/ask",
+            json={"query": "Now make that YoY", "session_id": session_id},
+        )
+
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["session_id"], session_id)
+        self.assertIsNotNone(service.last_call)
+        self.assertIsNotNone(service.last_call[3])
+        self.assertEqual(service.last_call[3].session_id, session_id)
+        self.assertEqual(service.last_call[3].last_query, "Show inflation")
 
     def test_compare_state_gdp(self) -> None:
         app.dependency_overrides[get_state_gdp_comparison_service] = lambda: _FakeStateGDPComparisonService()

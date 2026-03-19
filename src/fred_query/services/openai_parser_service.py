@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from openai import OpenAI
 
 from fred_query.errors import ConfigurationError, IntentParsingError
@@ -18,6 +20,7 @@ Supported task types:
 
 Rules:
 - Prefer clarification over guessing when the request is ambiguous.
+- When prior-turn context is supplied, use it only for clearly referential follow-ups such as "that", "it", "those", or "instead".
 - Set clarification_needed=true and provide clarification_question when the request could map to multiple materially different FRED series.
 - When clarification_needed=true for a single series, set clarification_target_index=0.
 - When clarification_needed=true for a relationship or multi-series question, set clarification_target_index to the 0-based index of the ambiguous series target.
@@ -66,11 +69,24 @@ class OpenAIIntentParser:
         self.client = client or OpenAI(api_key=api_key)
 
     def parse(self, query: str) -> QueryIntent:
+        return self._parse_input(query, original_query=query)
+
+    def parse_with_context(self, query: str, context: dict[str, object]) -> QueryIntent:
+        contextual_input = "\n\n".join(
+            [
+                "Prior turn context is provided below. Use it only when the current query is clearly a follow-up or relies on omitted context.",
+                json.dumps(context, default=str, indent=2),
+                f"Current user query:\n{query}",
+            ]
+        )
+        return self._parse_input(contextual_input, original_query=query)
+
+    def _parse_input(self, parser_input: str, *, original_query: str) -> QueryIntent:
         try:
             response = self.client.responses.parse(
                 model=self.model,
                 instructions=PARSER_INSTRUCTIONS,
-                input=query,
+                input=parser_input,
                 text_format=QueryIntent,
                 reasoning={"effort": self.reasoning_effort},
                 store=False,
@@ -83,7 +99,7 @@ class OpenAIIntentParser:
             raise IntentParsingError("OpenAI parser returned no structured intent.")
 
         if not intent.original_query:
-            intent.original_query = query
+            intent.original_query = original_query
 
         if intent.transform == TransformType.NORMALIZED_INDEX:
             intent.normalization = True
@@ -116,10 +132,10 @@ class OpenAIIntentParser:
         ):
             intent.clarification_target_index = 0
 
-        CrossSectionIntentService.promote_task_type(intent, query=query)
+        CrossSectionIntentService.promote_task_type(intent, query=original_query)
 
         if intent.task_type == TaskType.CROSS_SECTION:
-            CrossSectionIntentService.apply_defaults(intent, query=query)
+            CrossSectionIntentService.apply_defaults(intent, query=original_query)
 
             if (
                 not intent.series_id

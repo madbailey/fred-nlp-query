@@ -117,6 +117,7 @@ class SingleSeriesLookupService:
         return metrics
 
     def lookup(self, intent: QueryIntent) -> QueryResponse:
+        response_intent = intent.model_copy(deep=True)
         start_date = intent.start_date or self._default_start_date()
         end_date = intent.end_date
         effective_transform = (
@@ -151,6 +152,11 @@ class SingleSeriesLookupService:
             ),
             source_url=metadata.source_url,
         )
+        response_intent.series_id = metadata.series_id
+        if not response_intent.search_text:
+            response_intent.search_text = search_match.title if search_match is not None else metadata.title
+        if not response_intent.indicators:
+            response_intent.indicators = [resolved_series.indicator]
 
         periods_per_year = self.transform_service.periods_per_year_for_frequency(metadata.frequency)
         transform_window, transform_warnings = self.transform_service.resolve_transform_window(
@@ -358,4 +364,4 @@ class SingleSeriesLookupService:
             recession_periods=recession_periods,
         )
         answer_text = self.answer_service.write_single_series_lookup(analysis, normalize=normalize_chart)
-        return QueryResponse(intent=intent, analysis=analysis, chart=chart, answer_text=answer_text)
+        return QueryResponse(intent=response_intent, analysis=analysis, chart=chart, answer_text=answer_text)
