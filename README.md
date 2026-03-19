@@ -1,47 +1,55 @@
 # fred-nlp-query
 
-This repository is being reworked from an older Streamlit/LangChain prototype into a typed FRED analysis system with deterministic data execution, chart generation, and an LLM only where ambiguity actually exists.
+Typed FRED query engine with a FastAPI backend, a thin browser UI, deterministic data execution, and an LLM only for intent parsing and clarification.
 
-The working rebuild plan lives at `docs/rework-plan.md`.
+## Supported Surface
 
-Current state:
+- `src/fred_query/` is the supported application package.
+- FastAPI serves the API and browser UI from the same app.
+- The browser UI is packaged with the Python distribution and served from `/`.
 
-- The checked-in app is an abandoned prototype and should not be treated as the target architecture.
-- The next implementation pass should focus on the core engine first: query intent, series resolution, FRED retrieval, transforms, and chart specs.
-- UI work should stay thin until the engine is correct and testable.
+## API Endpoints
 
-Current implementation:
+- `GET /health`
+- `POST /api/ask`
+- `POST /api/compare/state-gdp`
+- `GET /`
 
-- `src/fred_query/` contains the new typed backend package.
-- The first deterministic flow is implemented for state real GDP comparison.
-- FastAPI now exposes the backend through `/health`, `/api/ask`, and `/api/compare/state-gdp`.
-- `tests/` covers transforms, the direct FRED client, and the California-vs-Texas comparison path.
+Request validation now happens at the API boundary. Handled failures return structured JSON error payloads instead of plain-text 500 responses.
 
-Verification:
-
-- Run tests with `PYTHONPATH=src python -m unittest discover -s tests -v`
-
-Run the current backend:
+## Local Setup
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
 python -m pip install -e .
-fred-query compare-state-gdp --state1 California --state2 Texas --start-date 2019-01-01
 ```
 
-Run the FastAPI app locally:
+## Run The App
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -U pip
-python -m pip install -e .
 uvicorn fred_query.api.app:app --reload
 ```
 
-Example API calls:
+Then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
+
+## Run Tests
+
+After `pip install -e .`:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+Without installing the package:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m unittest discover -s tests -v
+```
+
+## Example API Calls
 
 ```powershell
 Invoke-RestMethod -Method Get -Uri http://127.0.0.1:8000/health
@@ -49,24 +57,18 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/ask -ContentType "
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/compare/state-gdp -ContentType "application/json" -Body '{"state1":"California","state2":"Texas","start_date":"2019-01-01","normalize":true}'
 ```
 
-Run the containerized API:
+## CLI
 
 ```powershell
-docker compose up --build
-```
-
-Without installing the package:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m fred_query compare-state-gdp --state1 California --state2 Texas --start-date 2019-01-01 --format json
-```
-
-Natural-language parser:
-
-```powershell
+fred-query compare-state-gdp --state1 California --state2 Texas --start-date 2019-01-01
 fred-query ask "How has California's GDP compared with Texas since 2019?"
 fred-query ask "Show me the unemployment rate since 2020" --format json
 ```
 
-`ask` requires a working OpenAI API key and quota. If parser calls fail, the command exits with a hard error instead of falling back.
+`ask` requires a working OpenAI API key and quota. FRED-backed execution requires a FRED API key.
+
+## Container
+
+```powershell
+docker compose up --build
+```

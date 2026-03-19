@@ -30,8 +30,25 @@ class NaturalLanguageQueryService:
     def _default_start_date() -> date:
         return date.today() - timedelta(days=365 * 10)
 
-    def ask(self, query: str) -> RoutedQueryResponse:
-        intent = self.parser.parse(query)
+    @staticmethod
+    def _apply_selected_series(intent, selected_series_id: str | None):
+        if not selected_series_id:
+            return intent
+
+        intent.task_type = TaskType.SINGLE_SERIES_LOOKUP
+        intent.series_id = selected_series_id
+        intent.clarification_needed = False
+        intent.clarification_question = None
+        intent.parser_notes.append(
+            f"User selected explicit series ID {selected_series_id} from clarification options."
+        )
+        return intent
+
+    def ask(self, query: str, *, selected_series_id: str | None = None) -> RoutedQueryResponse:
+        intent = self._apply_selected_series(
+            self.parser.parse(query),
+            selected_series_id,
+        )
 
         if intent.clarification_needed:
             candidates = []

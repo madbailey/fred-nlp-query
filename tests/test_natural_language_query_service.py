@@ -140,6 +140,26 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         self.assertIn("CPI or PCE", response.answer_text)
         self.assertEqual(response.candidate_series[0].series_id, "UNRATE")
 
+    def test_selected_series_id_executes_lookup(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.SINGLE_SERIES_LOOKUP,
+            clarification_needed=True,
+            clarification_question="Do you mean CPI or PCE inflation?",
+            search_text="inflation united states",
+        )
+        service = NaturalLanguageQueryService(
+            parser=_FakeParser(intent),
+            fred_client=_FakeFREDClient(),
+            state_gdp_service=_FakeStateGDPService(),
+            single_series_service=_FakeSingleSeriesService(),
+        )
+
+        response = service.ask("Show inflation.", selected_series_id="CPIAUCSL")
+
+        self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertEqual(response.query_response.intent.series_id, "CPIAUCSL")
+        self.assertFalse(response.query_response.intent.clarification_needed)
+
     def test_raises_when_primary_parser_fails(self) -> None:
         service = NaturalLanguageQueryService(
             parser=_FailingParser(),

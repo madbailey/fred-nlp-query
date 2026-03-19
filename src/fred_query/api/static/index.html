@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FRED Query</title>
+    <meta
+        name="description"
+        content="Natural-language interface for FRED data with inspectable charts, series metadata, and clarification flows."
+    >
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet"
+    >
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="/static/app.js" defer></script>
+</head>
+<body>
+    <main class="shell">
+        <header class="hero">
+            <p class="eyebrow">FRED Query</p>
+            <h1>Ask a question about the economy.</h1>
+        </header>
+
+        <section class="query-panel">
+            <form id="query-form" class="query-form">
+                <textarea
+                    id="query-input"
+                    name="query"
+                    rows="2"
+                    placeholder="e.g. Show me the unemployment rate since 2020"
+                ></textarea>
+                <div class="form-footer">
+                    <div class="suggestions" aria-label="Example queries">
+                        <button type="button" class="suggestion" data-query="Show me the unemployment rate since 2020">
+                            Unemployment since 2020
+                        </button>
+                        <button type="button" class="suggestion" data-query="How has California's GDP compared with Texas since 2019?">
+                            California vs Texas GDP
+                        </button>
+                        <button type="button" class="suggestion" data-query="Compare New York and Florida GDP since 2015">
+                            NY vs FL GDP
+                        </button>
+                    </div>
+                    <button id="submit-button" class="submit-button" type="submit">Ask</button>
+                </div>
+            </form>
+            <div id="clarification-inline" class="clarification-inline hidden" aria-live="polite">
+                <p id="clarification-question" class="clarification-question"></p>
+                <div id="clarification-options" class="clarification-options"></div>
+                <p class="clarification-hint">Choose one, or keep typing to narrow it down.</p>
+            </div>
+            <div id="status-row" class="status-row hidden" aria-live="polite">
+                <span id="status-pill" class="status-pill"></span>
+                <p id="status-text" class="status-text"></p>
+            </div>
+            <div id="error-banner" class="error-banner hidden" role="alert"></div>
+        </section>
+
+        <section id="results" class="results hidden">
+            <article id="chart-panel" class="panel chart-panel hidden">
+                <div id="chart" class="chart"></div>
+                <p id="source-note" class="source-note"></p>
+            </article>
+
+            <article class="panel answer-panel">
+                <div class="panel-heading">
+                    <h2 id="answer-heading">Analysis</h2>
+                </div>
+                <p id="answer-text" class="answer-text"></p>
+                <dl id="intent-summary" class="intent-summary"></dl>
+                <div id="warning-list" class="warning-list"></div>
+            </article>
+
+            <article id="series-panel" class="panel hidden">
+                <div class="panel-heading">
+                    <h2>Series detail</h2>
+                </div>
+                <div id="series-grid" class="series-grid"></div>
+            </article>
+        </section>
+    </main>
+</body>
+</html>
