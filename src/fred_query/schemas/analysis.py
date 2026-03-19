@@ -21,7 +21,7 @@ class DerivedMetric(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     name: str
-    value: float | str
+    value: float | int | str
     unit: str | None = None
     description: str | None = None
 
@@ -32,6 +32,8 @@ class SeriesAnalysis(BaseModel):
     series: ResolvedSeries
     observations: list[ObservationPoint] = Field(default_factory=list)
     transformed_observations: list[ObservationPoint] | None = None
+    analysis_basis: str | None = None
+    analysis_units: str | None = None
     total_growth_pct: float | None = None
     compound_annual_growth_rate_pct: float | None = None
     latest_value: float | None = None

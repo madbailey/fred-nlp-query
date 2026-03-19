@@ -87,10 +87,16 @@ def _build_query_response() -> QueryResponse:
 class _FakeNaturalLanguageQueryService:
     def __init__(self, response: RoutedQueryResponse) -> None:
         self.response = response
-        self.last_call: tuple[str, str | None] | None = None
+        self.last_call: tuple[str, str | None, list[str | None] | None] | None = None
 
-    def ask(self, query: str, *, selected_series_id: str | None = None) -> RoutedQueryResponse:
-        self.last_call = (query, selected_series_id)
+    def ask(
+        self,
+        query: str,
+        *,
+        selected_series_id: str | None = None,
+        selected_series_ids: list[str | None] | None = None,
+    ) -> RoutedQueryResponse:
+        self.last_call = (query, selected_series_id, selected_series_ids)
         return self.response
 
 
@@ -103,7 +109,13 @@ class _FailingNaturalLanguageQueryService:
     def __init__(self, exc: Exception) -> None:
         self.exc = exc
 
-    def ask(self, query: str, *, selected_series_id: str | None = None) -> RoutedQueryResponse:
+    def ask(
+        self,
+        query: str,
+        *,
+        selected_series_id: str | None = None,
+        selected_series_ids: list[str | None] | None = None,
+    ) -> RoutedQueryResponse:
         raise self.exc
 
 
@@ -179,7 +191,25 @@ class APITest(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(service.last_call, ("Show inflation", "CPIAUCSL"))
+        self.assertEqual(service.last_call, ("Show inflation", "CPIAUCSL", ["CPIAUCSL"]))
+
+    def test_ask_forwards_selected_series_ids(self) -> None:
+        routed = RoutedQueryResponse(
+            status=RoutedQueryStatus.COMPLETED,
+            intent=_build_query_response().intent,
+            answer_text="Completed comparison.",
+            query_response=_build_query_response(),
+        )
+        service = _FakeNaturalLanguageQueryService(routed)
+        app.dependency_overrides[get_natural_language_query_service] = lambda: service
+
+        response = self.client.post(
+            "/api/ask",
+            json={"query": "Compare oil and inflation", "selected_series_ids": [None, "CPIAUCSL"]},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(service.last_call, ("Compare oil and inflation", None, [None, "CPIAUCSL"]))
 
     def test_ask_clarification(self) -> None:
         routed = RoutedQueryResponse(

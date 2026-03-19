@@ -11,16 +11,22 @@ PARSER_INSTRUCTIONS = """You convert natural-language economic questions into a 
 Supported task types:
 - state_gdp_comparison: the user compares GDP or economic size/growth between two US states
 - single_series_lookup: the user asks for one economic indicator, one FRED series, or mentions a specific FRED series ID
-- multi_series_comparison: the user compares multiple non-state-GDP series
+- multi_series_comparison: the user compares two non-state-GDP series
+- relationship_analysis: the user asks about correlation, co-movement, lead-lag behavior, or the relationship between two series
 
 Rules:
 - Prefer clarification over guessing when the request is ambiguous.
 - Set clarification_needed=true and provide clarification_question when the request could map to multiple materially different FRED series.
+- When clarification_needed=true for a single series, set clarification_target_index=0.
+- When clarification_needed=true for a relationship or multi-series question, set clarification_target_index to the 0-based index of the ambiguous series target.
 - If the user explicitly mentions a FRED series ID, copy it into series_id and use task_type=single_series_lookup.
+- For relationship_analysis and multi_series_comparison, populate search_texts with one short FRED-friendly phrase per series target in the same order they appear in the question.
+- For relationship_analysis and multi_series_comparison, if the user explicitly mentions series IDs, put them in series_ids in the same order as the targets.
 - Populate search_text with a short FRED-friendly search phrase whenever series_id is not provided.
 - Use normalization=true only when the user is asking for relative growth, indexed comparison, or wants the series normalized.
 - Preserve date ranges when the user gives them. If no dates are given, leave them null.
 - For state_gdp_comparison, include exactly two state geographies when possible.
+- For relationship_analysis and multi_series_comparison, prefer exactly two targets. If the request names fewer or more than two meaningful targets, set clarification_needed=true.
 - For unsupported or underspecified requests, still return the closest task_type but set clarification_needed=true.
 - parser_notes should be short factual notes about assumptions or unresolved ambiguity.
 """
@@ -70,5 +76,24 @@ class OpenAIIntentParser:
                 intent.clarification_question
                 or "Which two US states do you want to compare for GDP?"
             )
+
+        if (
+            intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS)
+            and len(intent.search_texts) + len([value for value in intent.series_ids if value]) < 2
+        ):
+            intent.clarification_needed = True
+            intent.clarification_question = (
+                intent.clarification_question
+                or "Which two economic series do you want to analyze together?"
+            )
+
+        if intent.task_type == TaskType.SINGLE_SERIES_LOOKUP and intent.clarification_needed:
+            intent.clarification_target_index = 0
+        if (
+            intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS)
+            and intent.clarification_needed
+            and intent.clarification_target_index is None
+        ):
+            intent.clarification_target_index = 0
 
         return intent

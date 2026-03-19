@@ -123,12 +123,19 @@ class FREDClient:
         series_id: str,
         start_date: date | None = None,
         end_date: date | None = None,
+        *,
+        frequency: str | None = None,
+        aggregation_method: str | None = None,
     ) -> list[ObservationPoint]:
         params: dict[str, Any] = {"series_id": series_id}
         if start_date is not None:
             params["observation_start"] = start_date.isoformat()
         if end_date is not None:
             params["observation_end"] = end_date.isoformat()
+        if frequency:
+            params["frequency"] = frequency
+        if aggregation_method:
+            params["aggregation_method"] = aggregation_method
 
         payload = self._request("series/observations", params=params)
         observations: list[ObservationPoint] = []

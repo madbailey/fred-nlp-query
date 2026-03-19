@@ -34,6 +34,49 @@ class TransformServiceTest(unittest.TestCase):
         self.assertAlmostEqual(total_growth or 0.0, 21.0, places=4)
         self.assertAlmostEqual(cagr or 0.0, 10.0, places=1)
 
+    def test_relationship_helpers(self) -> None:
+        code, label, periods_per_year, lag_unit = self.service.choose_relationship_frequency(["Daily", "Monthly"])
+
+        self.assertEqual(code, "m")
+        self.assertEqual(label, "Monthly")
+        self.assertEqual(periods_per_year, 12)
+        self.assertEqual(lag_unit, "months")
+
+    def test_pct_change_alignment_and_correlation(self) -> None:
+        first = [
+            ObservationPoint(date=date(2020, month, 1), value=float(month))
+            for month in range(1, 13)
+        ]
+        second = [
+            ObservationPoint(date=date(2020, month, 1), value=float(month * 2))
+            for month in range(1, 13)
+        ]
+
+        aligned_first, aligned_second = self.service.align_on_dates(first, second)
+        correlation = self.service.calculate_correlation(aligned_first, aligned_second)
+        slope = self.service.calculate_regression_slope(aligned_first, aligned_second)
+
+        self.assertEqual(len(aligned_first), 12)
+        self.assertAlmostEqual(correlation or 0.0, 1.0, places=6)
+        self.assertAlmostEqual(slope or 0.0, 2.0, places=6)
+
+    def test_best_lag_correlation_finds_lead(self) -> None:
+        first = [
+            ObservationPoint(date=date(2020, month, 1), value=float(month))
+            for month in range(1, 13)
+        ]
+        second_values = [99.0] + [float(month) for month in range(1, 12)]
+        second = [
+            ObservationPoint(date=date(2020, month, 1), value=second_values[month - 1])
+            for month in range(1, 13)
+        ]
+
+        lag, correlation, sample_size = self.service.calculate_best_lag_correlation(first, second, max_lag=2)
+
+        self.assertEqual(lag, 1)
+        self.assertAlmostEqual(correlation or 0.0, 1.0, places=6)
+        self.assertGreaterEqual(sample_size, 8)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -59,6 +59,23 @@ class OpenAIIntentParserTest(unittest.TestCase):
         self.assertTrue(parsed.clarification_needed)
         self.assertIn("two US states", parsed.clarification_question or "")
 
+    def test_relationship_parser_defaults_clarification_target_index(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.RELATIONSHIP_ANALYSIS,
+            clarification_needed=True,
+            clarification_question="Which inflation measure do you mean?",
+            search_texts=["brent crude oil price", "inflation united states"],
+        )
+        parser = OpenAIIntentParser(
+            api_key="test-key",
+            client=_FakeOpenAIClient(intent),
+        )
+
+        parsed = parser.parse("What is the relationship between Brent crude and inflation?")
+
+        self.assertTrue(parsed.clarification_needed)
+        self.assertEqual(parsed.clarification_target_index, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -31,7 +31,7 @@
                     id="query-input"
                     name="query"
                     rows="2"
-                    placeholder="e.g. Show me the unemployment rate since 2020"
+                    placeholder="e.g. What is the relationship between Brent crude oil prices and inflation?"
                 ></textarea>
                 <div class="form-footer">
                     <div class="suggestions" aria-label="Example queries">
@@ -44,6 +44,9 @@
                         <button type="button" class="suggestion" data-query="Compare New York and Florida GDP since 2015">
                             NY vs FL GDP
                         </button>
+                        <button type="button" class="suggestion" data-query="What is the relationship between Brent crude oil prices and inflation since 2010?">
+                            Brent vs inflation
+                        </button>
                     </div>
                     <button id="submit-button" class="submit-button" type="submit">Ask</button>
                 </div>
@@ -51,7 +54,7 @@
             <div id="clarification-inline" class="clarification-inline hidden" aria-live="polite">
                 <p id="clarification-question" class="clarification-question"></p>
                 <div id="clarification-options" class="clarification-options"></div>
-                <p class="clarification-hint">Choose one, or keep typing to narrow it down.</p>
+                <p id="clarification-hint" class="clarification-hint">Choose one, or keep typing to narrow it down.</p>
             </div>
             <div id="status-row" class="status-row hidden" aria-live="polite">
                 <span id="status-pill" class="status-pill"></span>
@@ -73,6 +76,13 @@
                 <p id="answer-text" class="answer-text"></p>
                 <dl id="intent-summary" class="intent-summary"></dl>
                 <div id="warning-list" class="warning-list"></div>
+            </article>
+
+            <article id="metrics-panel" class="panel hidden">
+                <div class="panel-heading">
+                    <h2>Derived metrics</h2>
+                </div>
+                <div id="metrics-grid" class="metrics-grid"></div>
             </article>
 
             <article id="series-panel" class="panel hidden">

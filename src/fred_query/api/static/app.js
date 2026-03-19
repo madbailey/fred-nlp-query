@@ -5,6 +5,7 @@ const suggestionButtons = Array.from(document.querySelectorAll(".suggestion"));
 const clarificationInline = document.getElementById("clarification-inline");
 const clarificationQuestion = document.getElementById("clarification-question");
 const clarificationOptions = document.getElementById("clarification-options");
+const clarificationHint = document.getElementById("clarification-hint");
 const statusRow = document.getElementById("status-row");
 const statusPill = document.getElementById("status-pill");
 const statusText = document.getElementById("status-text");
@@ -14,6 +15,8 @@ const answerHeading = document.getElementById("answer-heading");
 const answerText = document.getElementById("answer-text");
 const intentSummary = document.getElementById("intent-summary");
 const warningList = document.getElementById("warning-list");
+const metricsPanel = document.getElementById("metrics-panel");
+const metricsGrid = document.getElementById("metrics-grid");
 const chartPanel = document.getElementById("chart-panel");
 const chartElement = document.getElementById("chart");
 const sourceNote = document.getElementById("source-note");
@@ -59,6 +62,10 @@ function formatDate(value) {
 }
 
 function formatValue(value) {
+    if (typeof value === "string" && Number.isNaN(Number(value))) {
+        return value;
+    }
+
     if (value === null || value === undefined || Number.isNaN(Number(value))) {
         return "N/A";
     }
@@ -118,6 +125,7 @@ function clearClarification() {
     selectedClarificationSeriesId = null;
     clarificationQuestion.textContent = "";
     clarificationOptions.innerHTML = "";
+    clarificationHint.textContent = "Choose one, or keep typing to narrow it down.";
     setHidden(clarificationInline, true);
 }
 
@@ -126,9 +134,11 @@ function clearResults({ keepClarification = false } = {}) {
     answerText.textContent = "";
     intentSummary.innerHTML = "";
     warningList.innerHTML = "";
+    metricsGrid.innerHTML = "";
     seriesGrid.innerHTML = "";
     sourceNote.textContent = "";
     setHidden(chartPanel, true);
+    setHidden(metricsPanel, true);
     setHidden(seriesPanel, true);
     if (!keepClarification) {
         clearClarification();
@@ -214,6 +224,28 @@ function renderWarnings(warnings) {
         .join("");
 }
 
+function renderDerivedMetrics(metrics) {
+    if (!metrics || metrics.length === 0) {
+        metricsGrid.innerHTML = "";
+        setHidden(metricsPanel, true);
+        return;
+    }
+
+    metricsGrid.innerHTML = metrics
+        .map((metric) => {
+            const unit = metric.unit ? ` ${escapeHtml(metric.unit)}` : "";
+            return `
+                <article class="metric-card">
+                    <p class="metric-card-label">${escapeHtml(humanize(metric.name))}</p>
+                    <p class="metric-card-value">${escapeHtml(formatValue(metric.value))}${unit}</p>
+                    ${metric.description ? `<p class="metric-card-description">${escapeHtml(metric.description)}</p>` : ""}
+                </article>
+            `;
+        })
+        .join("");
+    setHidden(metricsPanel, false);
+}
+
 function renderChart(figure, response) {
     if (!figure || !window.Plotly) {
         setHidden(chartPanel, true);
@@ -294,6 +326,12 @@ function renderSeriesResults(seriesResults) {
                             <span class="metric-label">Units</span>
                             <span class="metric-value">${escapeHtml(series.units)}</span>
                         </div>
+                        ${item.analysis_basis ? `
+                        <div class="metric-row">
+                            <span class="metric-label">Analysis basis</span>
+                            <span class="metric-value">${escapeHtml(item.analysis_basis)}</span>
+                        </div>
+                        ` : ""}
                         <div class="metric-row">
                             <span class="metric-label">Total growth</span>
                             <span class="metric-value">${escapeHtml(formatPercent(item.total_growth_pct))}</span>
@@ -303,6 +341,7 @@ function renderSeriesResults(seriesResults) {
                             <span class="metric-value">${escapeHtml(formatPercent(item.compound_annual_growth_rate_pct))}</span>
                         </div>
                     </div>
+                    ${series.resolution_reason ? `<p class="series-note">${escapeHtml(series.resolution_reason)}</p>` : ""}
                     <a class="resource-link" href="${escapeHtml(series.source_url)}" target="_blank" rel="noreferrer">Open in FRED</a>
                 </article>
             `;
@@ -319,7 +358,7 @@ function formatClarificationMeta(candidate) {
 
 function renderClarificationOptions(response, query) {
     const candidates = (response.candidate_series || []).slice(0, 4);
-    if (response.status !== "needs_clarification" || candidates.length === 0 || !query) {
+    if (response.status !== "needs_clarification" || !query) {
         clearClarification();
         return;
     }
@@ -328,6 +367,10 @@ function renderClarificationOptions(response, query) {
         query,
         candidates,
         question: response.answer_text || "Pick the series you meant.",
+        selectedSeriesIds: Array.isArray(response.intent?.series_ids) ? [...response.intent.series_ids] : [],
+        targetIndex: Number.isInteger(response.intent?.clarification_target_index)
+            ? response.intent.clarification_target_index
+            : 0,
     };
     clarificationQuestion.textContent = pendingClarification.question;
     clarificationOptions.innerHTML = candidates
@@ -342,6 +385,9 @@ function renderClarificationOptions(response, query) {
             </button>
         `)
         .join("");
+    clarificationHint.textContent = candidates.length > 0
+        ? "Choose one, or keep typing to narrow it down."
+        : "No confident series matches yet. Keep typing more specifically or enter a FRED series ID.";
     setHidden(clarificationInline, false);
 }
 
@@ -356,12 +402,13 @@ function renderResponse(response, query) {
     updateStatus(response.status, response.answer_text);
     renderIntent(response.intent || {});
     renderWarnings(response.result?.analysis?.warnings || []);
+    renderDerivedMetrics(response.result?.analysis?.derived_metrics || []);
     renderChart(response.plotly_figure, response);
     renderSeriesResults(response.result?.analysis?.series_results || []);
     renderClarificationOptions(response, query);
 }
 
-async function submitQuery({ query, selectedSeriesId = null, preserveCurrentResults = false }) {
+async function submitQuery({ query, selectedSeriesIds = [], preserveCurrentResults = false }) {
     clearError();
     if (!preserveCurrentResults) {
         clearResults();
@@ -376,7 +423,8 @@ async function submitQuery({ query, selectedSeriesId = null, preserveCurrentResu
             },
             body: JSON.stringify({
                 query,
-                selected_series_id: selectedSeriesId,
+                selected_series_id: selectedSeriesIds.find((value) => Boolean(value)) || null,
+                selected_series_ids: selectedSeriesIds,
             }),
         });
 
@@ -439,7 +487,11 @@ clarificationOptions.addEventListener("click", (event) => {
     );
     submitQuery({
         query: pendingClarification.query,
-        selectedSeriesId: selectedClarificationSeriesId,
+        selectedSeriesIds: (() => {
+            const selections = [...pendingClarification.selectedSeriesIds];
+            selections[pendingClarification.targetIndex] = selectedClarificationSeriesId;
+            return selections;
+        })(),
         preserveCurrentResults: true,
     });
 });

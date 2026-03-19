@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fred_query.schemas.analysis import SeriesAnalysis
 from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace, DateSpanAnnotation, LineStyle
 
@@ -41,6 +43,7 @@ class ChartService:
         )
 
         return ChartSpec(
+            chart_type="scatter",
             title=f"Real GDP Comparison: {series_results[0].series.geography} vs {series_results[1].series.geography}",
             subtitle=f"{subtitle} Coverage: {start_year} to {end_year}.",
             x_axis=AxisSpec(title="Date"),
@@ -64,6 +67,7 @@ class ChartService:
         y_axis_title = "Index (Base = 100)" if normalize else series_result.series.units
 
         return ChartSpec(
+            chart_type="scatter",
             title=series_result.series.title,
             subtitle=f"Coverage: {start_year} to {end_year}.",
             x_axis=AxisSpec(title="Date"),
@@ -78,5 +82,39 @@ class ChartService:
             ],
             annotations=recession_periods,
             recession_shading=bool(recession_periods),
+            source_note="Source: FRED, Federal Reserve Bank of St. Louis",
+        )
+
+    def build_relationship_chart(
+        self,
+        *,
+        series_results: list[SeriesAnalysis],
+        frequency_label: str,
+        chart_basis: str,
+        chart_units: str,
+        start_date: date,
+        end_date: date,
+    ) -> ChartSpec:
+        traces: list[ChartTrace] = []
+        for index, result in enumerate(series_results):
+            points = result.transformed_observations or []
+            traces.append(
+                ChartTrace(
+                    name=result.series.series_id,
+                    x=[point.date for point in points],
+                    y=[round(point.value, 4) for point in points],
+                    line=LineStyle(color=self._COLORS[index % len(self._COLORS)], width=3 if index == 0 else 2),
+                )
+            )
+
+        return ChartSpec(
+            chart_type="scatter",
+            title=f"Relationship Analysis: {series_results[0].series.series_id} vs {series_results[1].series.series_id}",
+            subtitle=(
+                f"{chart_basis}. {frequency_label} alignment from {start_date.year} to {end_date.year}."
+            ),
+            x_axis=AxisSpec(title="Date"),
+            y_axis=AxisSpec(title=chart_units),
+            series=traces,
             source_note="Source: FRED, Federal Reserve Bank of St. Louis",
         )

@@ -122,6 +122,7 @@ def create_app() -> FastAPI:
         response = service.ask(
             request.query,
             selected_series_id=request.selected_series_id,
+            selected_series_ids=request.selected_series_ids,
         )
         return ApiRoutedQueryResponse.from_routed_response(response)
 

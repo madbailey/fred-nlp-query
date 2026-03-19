@@ -15,6 +15,7 @@ class AskRequest(BaseModel):
 
     query: str
     selected_series_id: str | None = None
+    selected_series_ids: list[str | None] = Field(default_factory=list)
 
     @field_validator("query")
     @classmethod
@@ -31,6 +32,24 @@ class AskRequest(BaseModel):
             return None
         stripped = value.strip()
         return stripped or None
+
+    @field_validator("selected_series_ids")
+    @classmethod
+    def validate_selected_series_ids(cls, value: list[str | None]) -> list[str | None]:
+        normalized: list[str | None] = []
+        for item in value:
+            if item is None:
+                normalized.append(None)
+                continue
+            stripped = item.strip()
+            normalized.append(stripped or None)
+        return normalized
+
+    @model_validator(mode="after")
+    def normalize_selected_series_inputs(self) -> "AskRequest":
+        if self.selected_series_id and not self.selected_series_ids:
+            self.selected_series_ids = [self.selected_series_id]
+        return self
 
 
 class StateGDPCompareRequest(BaseModel):
