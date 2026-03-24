@@ -133,6 +133,109 @@ class _InflationClarificationFREDClient:
         ]
 
 
+class _LowScoreClarificationFREDClient:
+    def search_series(self, search_text: str, limit: int = 5) -> list[SeriesSearchMatch]:
+        lowered = search_text.lower()
+        if "cpi" in lowered:
+            return [
+                SeriesSearchMatch(
+                    series_id="SERIES1",
+                    title="Consumer Price Index",
+                    units="Index",
+                    frequency="M",
+                    source_url="https://fred.stlouisfed.org/series/SERIES1",
+                )
+            ]
+        if "pce" in lowered:
+            return [
+                SeriesSearchMatch(
+                    series_id="SERIES2",
+                    title="Personal Consumption Expenditures Price Index",
+                    units="Index",
+                    frequency="M",
+                    source_url="https://fred.stlouisfed.org/series/SERIES2",
+                )
+            ]
+        return []
+
+
+class _CrowdedInflationClarificationFREDClient:
+    def search_series(self, search_text: str, limit: int = 5) -> list[SeriesSearchMatch]:
+        lowered = search_text.lower()
+        if "cpi" in lowered:
+            return [
+                SeriesSearchMatch(
+                    series_id="CPIAUCSL",
+                    title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                    units="Index 1982-1984=100",
+                    frequency="M",
+                    popularity=95,
+                    source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+                )
+            ]
+        if "pce" in lowered:
+            return [
+                SeriesSearchMatch(
+                    series_id="PCETRIM12M159SFRBDAL",
+                    title="Trimmed Mean PCE Inflation Rate",
+                    units="% Chg. from Yr. Ago",
+                    frequency="M",
+                    popularity=82,
+                    source_url="https://fred.stlouisfed.org/series/PCETRIM12M159SFRBDAL",
+                ),
+                SeriesSearchMatch(
+                    series_id="PCEPI",
+                    title="Personal Consumption Expenditures: Chain-type Price Index",
+                    units="Index 2017=100",
+                    frequency="M",
+                    popularity=88,
+                    source_url="https://fred.stlouisfed.org/series/PCEPI",
+                ),
+            ]
+        return [
+            SeriesSearchMatch(
+                series_id="PCETRIM12M159SFRBDAL",
+                title="Trimmed Mean PCE Inflation Rate",
+                units="% Chg. from Yr. Ago",
+                frequency="M",
+                popularity=82,
+                source_url="https://fred.stlouisfed.org/series/PCETRIM12M159SFRBDAL",
+            ),
+            SeriesSearchMatch(
+                series_id="PCETRIM1M158SFRBDAL",
+                title="Trimmed Mean PCE Inflation Rate",
+                units="% Chg. at Annual Rate",
+                frequency="M",
+                popularity=80,
+                source_url="https://fred.stlouisfed.org/series/PCETRIM1M158SFRBDAL",
+            ),
+            SeriesSearchMatch(
+                series_id="PCETRIM6M680SFRBDAL",
+                title="Trimmed Mean PCE Inflation Rate",
+                units="6-Month Annualized % Chg.",
+                frequency="M",
+                popularity=79,
+                source_url="https://fred.stlouisfed.org/series/PCETRIM6M680SFRBDAL",
+            ),
+            SeriesSearchMatch(
+                series_id="PCEPI",
+                title="Personal Consumption Expenditures: Chain-type Price Index",
+                units="Index 2017=100",
+                frequency="M",
+                popularity=88,
+                source_url="https://fred.stlouisfed.org/series/PCEPI",
+            ),
+            SeriesSearchMatch(
+                series_id="CPIAUCSL",
+                title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                units="Index 1982-1984=100",
+                frequency="M",
+                popularity=95,
+                source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+            ),
+        ]
+
+
 class _FakeStateGDPService:
     def compare(self, **_: object) -> QueryResponse:
         series = ResolvedSeries(
@@ -407,6 +510,73 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
             [candidate.series_id for candidate in response.candidate_series],
             ["CPIAUCSL", "PCEPI"],
         )
+        self.assertIn("Pick this if you want CPI", response.candidate_series[0].selection_hint or "")
+        self.assertIn("Pick this if you want PCE", response.candidate_series[1].selection_hint or "")
+
+    def test_clarification_candidates_fall_back_to_ranked_matches_when_example_scores_are_weak(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.RELATIONSHIP_ANALYSIS,
+            clarification_needed=True,
+            clarification_target_index=1,
+            clarification_question=(
+                "Which inflation measure would you like to use for the relationship analysis: "
+                "CPI inflation, PCE inflation, or another inflation series?"
+            ),
+            search_texts=["brent crude oil price", "inflation united states"],
+        )
+        service = NaturalLanguageQueryService(
+            parser=_FakeParser(intent),
+            fred_client=_LowScoreClarificationFREDClient(),
+            state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
+            single_series_service=_FakeSingleSeriesService(),
+            relationship_service=_FakeRelationshipService(),
+        )
+
+        response = service.ask("What is the relationship between Brent crude oil prices and inflation since 2010?")
+
+        self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(
+            [candidate.series_id for candidate in response.candidate_series],
+            ["SERIES1", "SERIES2"],
+        )
+        self.assertIn("Pick one of the series below to continue.", response.answer_text)
+
+    def test_clarification_candidates_cover_examples_and_dedupe_specialized_variants(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.RELATIONSHIP_ANALYSIS,
+            clarification_needed=True,
+            clarification_target_index=1,
+            clarification_question=(
+                "Which inflation series should I use: CPI inflation (CPI-U), PCE inflation, or another inflation measure?"
+            ),
+            search_texts=["brent crude oil price", "inflation united states"],
+        )
+        service = NaturalLanguageQueryService(
+            parser=_FakeParser(intent),
+            fred_client=_CrowdedInflationClarificationFREDClient(),
+            state_gdp_service=_FakeStateGDPService(),
+            cross_section_service=_FakeCrossSectionService(),
+            single_series_service=_FakeSingleSeriesService(),
+            relationship_service=_FakeRelationshipService(),
+        )
+
+        response = service.ask("What is the relationship between Brent crude oil prices and inflation since 2010?")
+
+        self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(
+            [candidate.series_id for candidate in response.candidate_series],
+            ["CPIAUCSL", "PCEPI", "PCETRIM12M159SFRBDAL"],
+        )
+        self.assertEqual(
+            [candidate.selection_label for candidate in response.candidate_series],
+            ["Headline CPI", "Headline PCE", "Trimmed Mean PCE"],
+        )
+        self.assertEqual(
+            len({candidate.title for candidate in response.candidate_series}),
+            len(response.candidate_series),
+        )
+        self.assertIn("smoother Dallas Fed trend measure", response.candidate_series[2].selection_hint or "")
 
     def test_raises_when_primary_parser_fails(self) -> None:
         service = NaturalLanguageQueryService(

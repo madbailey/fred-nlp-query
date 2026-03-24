@@ -239,6 +239,9 @@ class APITest(unittest.TestCase):
                 SeriesSearchMatch(
                     series_id="CPIAUCSL",
                     title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                    selection_label="Headline CPI",
+                    selection_hint="Pick this if you want CPI, the broad consumer inflation measure most people mean by 'inflation'.",
+                    selection_badges=["Monthly", "Index level"],
                     source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
                 )
             ],
@@ -252,6 +255,8 @@ class APITest(unittest.TestCase):
         self.assertEqual(payload["status"], "needs_clarification")
         self.assertTrue(payload["session_id"])
         self.assertEqual(payload["candidate_series"][0]["series_id"], "CPIAUCSL")
+        self.assertEqual(payload["candidate_series"][0]["selection_label"], "Headline CPI")
+        self.assertIn("Pick this if you want CPI", payload["candidate_series"][0]["selection_hint"])
 
     def test_ask_reuses_session_id_for_follow_up(self) -> None:
         routed = RoutedQueryResponse(

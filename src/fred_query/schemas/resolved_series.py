@@ -8,6 +8,9 @@ class SeriesSearchMatch(BaseModel):
 
     series_id: str
     title: str
+    selection_label: str | None = None
+    selection_hint: str | None = None
+    selection_badges: list[str] = Field(default_factory=list)
     units: str | None = None
     frequency: str | None = None
     seasonal_adjustment: str | None = None

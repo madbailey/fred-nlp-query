@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet"
     >
     <link rel="stylesheet" href="/static/styles.css">
@@ -24,9 +24,9 @@
             <div class="entry-inner">
                 <header class="hero">
                     <p class="eyebrow">FRED Query</p>
-                    <h1>Start with a question. Iterate on the result.</h1>
+                    <h1>Ask a question about FRED data</h1>
                     <p class="hero-copy">
-                        Ask once, then keep shaping the chart, comparison, or ranking without leaving the working view.
+                        Get charts, comparisons, and metrics from the Federal Reserve Economic Data API.
                     </p>
                 </header>
                 <div id="entry-composer-slot" class="entry-composer-slot"></div>
@@ -57,7 +57,6 @@
                 <div id="workspace-scroll" class="workspace-scroll">
                     <header class="workspace-header">
                         <div>
-                            <p class="workspace-kicker">Active result</p>
                             <h2 id="active-result-title" class="workspace-result-title">Result workspace</h2>
                         </div>
                         <p id="active-result-meta" class="active-result-meta"></p>
@@ -97,6 +96,10 @@
                         </article>
 
                         <article id="chart-panel" class="panel chart-panel hidden">
+                            <header class="chart-header">
+                                <h2 id="chart-title" class="chart-title"></h2>
+                                <p id="chart-subtitle" class="chart-subtitle hidden"></p>
+                            </header>
                             <div id="chart" class="chart"></div>
                             <p id="source-note" class="source-note"></p>
                         </article>
@@ -132,16 +135,16 @@
                 <p id="composer-context" class="composer-context hidden"></p>
                 <div class="form-footer">
                     <div class="suggestions" aria-label="Example queries">
-                        <button type="button" class="suggestion" data-query="Show me the unemployment rate since 2020">
+                        <button type="button" class="suggestion" data-query="Show me the unemployment rate since 2020" title="Show me the unemployment rate since 2020">
                             Unemployment since 2020
                         </button>
-                        <button type="button" class="suggestion" data-query="How has California's GDP compared with Texas since 2019?">
+                        <button type="button" class="suggestion" data-query="How has California's GDP compared with Texas since 2019?" title="How has California's GDP compared with Texas since 2019?">
                             California vs Texas GDP
                         </button>
-                        <button type="button" class="suggestion" data-query="Compare New York and Florida GDP since 2015">
+                        <button type="button" class="suggestion" data-query="Compare New York and Florida GDP since 2015" title="Compare New York and Florida GDP since 2015">
                             NY vs FL GDP
                         </button>
-                        <button type="button" class="suggestion" data-query="What is the relationship between Brent crude oil prices and inflation since 2010?">
+                        <button type="button" class="suggestion" data-query="What is the relationship between Brent crude oil prices and inflation since 2010?" title="What is the relationship between Brent crude oil prices and inflation since 2010?">
                             Brent vs inflation
                         </button>
                     </div>

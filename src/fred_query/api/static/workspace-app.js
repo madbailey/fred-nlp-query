@@ -45,6 +45,8 @@ export function mountWorkspaceApp() {
         metricsPanel: document.getElementById("metrics-panel"),
         metricsGrid: document.getElementById("metrics-grid"),
         chartPanel: document.getElementById("chart-panel"),
+        chartTitle: document.getElementById("chart-title"),
+        chartSubtitle: document.getElementById("chart-subtitle"),
         chartElement: document.getElementById("chart"),
         sourceNote: document.getElementById("source-note"),
         seriesPanel: document.getElementById("series-panel"),
@@ -196,16 +198,16 @@ export function mountWorkspaceApp() {
 
     function syncStatus() {
         if (isLoading) {
-            updateStatus("working", "Parsing the prompt, resolving FRED series, and updating the active result.");
+            updateStatus("working", "Processing query...");
             return;
         }
         const activeRevision = getActiveRevision();
         if (activeRevision?.response?.status === "needs_clarification") {
-            updateStatus("needs_clarification", "Resolve the clarification to continue this result.");
+            updateStatus("needs_clarification", "Pick a series to continue.");
             return;
         }
         if (activeRevision?.response?.status === "unsupported") {
-            updateStatus("unsupported", "This revision did not map to a deterministic execution path.");
+            updateStatus("unsupported", "This type of question isn't supported yet.");
             return;
         }
         updateStatus(null, "");
@@ -255,10 +257,10 @@ export function mountWorkspaceApp() {
         elements.activeResultTitle.textContent = activeRevision.label;
         elements.activeResultMeta.textContent = `Revision ${activeIndex} of ${workspace.revisions.length} · ${formatRevisionStatus(activeRevision.status)}${activeRevision.response?.intent?.task_type ? ` · ${humanize(activeRevision.response.intent.task_type)}` : ""}`;
         if (activeRevision.response?.status === "needs_clarification" && referenceRevision) {
-            elements.workspaceContextBanner.textContent = "The previous completed result is still visible while this revision waits for clarification.";
+            elements.workspaceContextBanner.textContent = "Showing the previous result while this revision needs clarification.";
             setHidden(elements.workspaceContextBanner, false);
         } else if (latestRevision && latestRevision.id !== activeRevision.id) {
-            elements.workspaceContextBanner.textContent = `New prompts will build from Revision ${activeIndex}, not the latest result.`;
+            elements.workspaceContextBanner.textContent = `Viewing Revision ${activeIndex}. New prompts will build from here.`;
             setHidden(elements.workspaceContextBanner, false);
         } else {
             setHidden(elements.workspaceContextBanner, true);
@@ -300,12 +302,16 @@ export function mountWorkspaceApp() {
             elements.workspaceSubtitle.textContent = `${workspace.revisions.length} ${workspace.revisions.length === 1 ? "revision" : "revisions"} · Latest prompt: ${truncateText(getLatestRevision()?.prompt || "", 52)}`;
             renderRevisionList();
             renderActiveRevision();
-            elements.composerContext.textContent = activeRevision && getLatestRevision()?.id !== activeRevision.id
-                ? `New prompts will build from Revision ${getRevisionIndex(activeRevision.id) + 1}.`
-                : (activeRevision?.response?.status === "needs_clarification"
-                    ? "This revision needs clarification before the result can be completed."
-                    : "New prompts will build from the active result.");
-            setHidden(elements.composerContext, false);
+            if (activeRevision && getLatestRevision()?.id !== activeRevision.id) {
+                elements.composerContext.textContent = `Building from Revision ${getRevisionIndex(activeRevision.id) + 1}, not the latest.`;
+                setHidden(elements.composerContext, false);
+            } else if (activeRevision?.response?.status === "needs_clarification") {
+                elements.composerContext.textContent = "Pick a series above before continuing.";
+                setHidden(elements.composerContext, false);
+            } else {
+                elements.composerContext.textContent = "";
+                setHidden(elements.composerContext, true);
+            }
         } else {
             elements.composerContext.textContent = "";
             setHidden(elements.composerContext, true);
