@@ -11,6 +11,28 @@ class ChartService:
 
     _COLORS = ["#1f77b4", "#ff7f0e", "#111111"]
 
+    @staticmethod
+    def _compact_title(title: str) -> str:
+        text = title.strip()
+        if not text:
+            return ""
+        if len(text) <= 48:
+            return text
+
+        for separator in (":", ";", ","):
+            prefix = text.split(separator, 1)[0].strip()
+            if 12 <= len(prefix) <= 48:
+                return prefix
+
+        return f"{text[:45].rstrip()}..."
+
+    @classmethod
+    def _series_label(cls, result: SeriesAnalysis) -> str:
+        compact_title = cls._compact_title(result.series.title)
+        if compact_title:
+            return compact_title
+        return result.series.series_id
+
     def build_state_gdp_chart(
         self,
         *,
@@ -84,7 +106,7 @@ class ChartService:
             y_axis=AxisSpec(title=y_axis_title),
             series=[
                 ChartTrace(
-                    name=series_result.series.series_id,
+                    name=self._series_label(series_result),
                     x=[point.date for point in points or []],
                     y=[round(point.value, 4) for point in points or []],
                     line=LineStyle(color=self._COLORS[0], width=3),
@@ -108,9 +130,10 @@ class ChartService:
         traces: list[ChartTrace] = []
         for index, result in enumerate(series_results):
             points = result.transformed_observations or []
+            label = self._series_label(result)
             traces.append(
                 ChartTrace(
-                    name=result.series.series_id,
+                    name=label,
                     x=[point.date for point in points],
                     y=[round(point.value, 4) for point in points],
                     line=LineStyle(color=self._COLORS[index % len(self._COLORS)], width=3 if index == 0 else 2),
@@ -119,7 +142,7 @@ class ChartService:
 
         return ChartSpec(
             chart_type="scatter",
-            title=f"Relationship Analysis: {series_results[0].series.series_id} vs {series_results[1].series.series_id}",
+            title=f"{self._series_label(series_results[0])} vs {self._series_label(series_results[1])}",
             subtitle=(
                 f"{chart_basis}. {frequency_label} alignment from {start_date.year} to {end_date.year}."
             ),

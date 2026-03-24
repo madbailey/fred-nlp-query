@@ -6,26 +6,125 @@
     <title>FRED Query</title>
     <meta
         name="description"
-        content="Natural-language interface for FRED data with inspectable charts, series metadata, and clarification flows."
+        content="Natural-language interface for FRED data with inspectable charts, revision history, and workspace-style iteration."
     >
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet"
     >
     <link rel="stylesheet" href="/static/styles.css">
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-    <script src="/static/app.js" defer></script>
+    <script type="module" src="/static/app.js"></script>
 </head>
 <body>
-    <main class="shell">
-        <header class="hero">
-            <p class="eyebrow">FRED Query</p>
-            <h1>Ask a question about the economy.</h1>
-        </header>
+    <main class="app-shell">
+        <section id="entry-view" class="entry-view">
+            <div class="entry-inner">
+                <header class="hero">
+                    <p class="eyebrow">FRED Query</p>
+                    <h1>Ask a question about FRED data</h1>
+                    <p class="hero-copy">
+                        Get charts, comparisons, and metrics from the Federal Reserve Economic Data API.
+                    </p>
+                </header>
+                <div id="entry-composer-slot" class="entry-composer-slot"></div>
+            </div>
+        </section>
 
-        <section class="query-panel">
+        <section id="workspace-view" class="workspace-view hidden">
+            <aside class="workspace-sidebar">
+                <div class="workspace-sidebar-header">
+                    <div>
+                        <p class="eyebrow">FRED Query</p>
+                        <h2 id="workspace-title" class="workspace-title">New workspace</h2>
+                        <p id="workspace-subtitle" class="workspace-subtitle"></p>
+                    </div>
+                    <button id="reset-session-button" class="ghost-button" type="button">New workspace</button>
+                </div>
+
+                <section class="sidebar-section" aria-labelledby="revision-history-label">
+                    <div class="sidebar-section-header">
+                        <p id="revision-history-label" class="section-label">Revision history</p>
+                        <p id="revision-count" class="section-meta"></p>
+                    </div>
+                    <div id="revision-list" class="revision-list"></div>
+                </section>
+            </aside>
+
+            <section class="workspace-main">
+                <div id="workspace-scroll" class="workspace-scroll">
+                    <header class="workspace-header">
+                        <div>
+                            <h2 id="active-result-title" class="workspace-result-title">Result workspace</h2>
+                        </div>
+                        <p id="active-result-meta" class="active-result-meta"></p>
+                    </header>
+
+                    <div id="workspace-context-banner" class="context-banner hidden"></div>
+
+                    <section id="clarification-panel" class="panel clarification-panel hidden" aria-live="polite">
+                        <div class="panel-heading">
+                            <h2>Clarification</h2>
+                        </div>
+                        <p id="clarification-question" class="clarification-question"></p>
+                        <div id="clarification-options" class="clarification-options"></div>
+                        <p id="clarification-hint" class="clarification-hint">Choose one, or keep typing to narrow it down.</p>
+                    </section>
+
+                    <section id="unsupported-panel" class="panel unsupported-panel hidden">
+                        <div class="panel-heading">
+                            <h2>Request status</h2>
+                        </div>
+                        <p id="unsupported-text" class="unsupported-text"></p>
+                    </section>
+
+                    <section id="empty-state-panel" class="empty-state-panel hidden">
+                        <h2>No active result</h2>
+                        <p>Select a revision or ask a new question to build a workspace.</p>
+                    </section>
+
+                    <section id="results" class="result-canvas hidden">
+                        <article class="panel answer-panel">
+                            <p id="answer-text" class="answer-text"></p>
+                            <div id="warning-list" class="warning-list"></div>
+                            <details id="intent-details" class="intent-details">
+                                <summary class="intent-toggle">Query details</summary>
+                                <dl id="intent-summary" class="intent-summary"></dl>
+                            </details>
+                        </article>
+
+                        <article id="chart-panel" class="panel chart-panel hidden">
+                            <header class="chart-header">
+                                <h2 id="chart-title" class="chart-title"></h2>
+                                <p id="chart-subtitle" class="chart-subtitle hidden"></p>
+                            </header>
+                            <div id="chart" class="chart"></div>
+                            <p id="source-note" class="source-note"></p>
+                        </article>
+
+                        <article id="metrics-panel" class="panel hidden">
+                            <div class="panel-heading">
+                                <h2>Derived metrics</h2>
+                            </div>
+                            <div id="metrics-grid" class="metrics-grid"></div>
+                        </article>
+
+                        <article id="series-panel" class="panel hidden">
+                            <div class="panel-heading">
+                                <h2>Series detail</h2>
+                            </div>
+                            <div id="series-grid" class="series-grid"></div>
+                        </article>
+                    </section>
+                </div>
+
+                <div id="workspace-composer-slot" class="workspace-composer-slot"></div>
+            </section>
+        </section>
+
+        <section id="composer-card" class="composer-card">
             <form id="query-form" class="query-form">
                 <textarea
                     id="query-input"
@@ -33,64 +132,30 @@
                     rows="2"
                     placeholder="e.g. What is the relationship between Brent crude oil prices and inflation?"
                 ></textarea>
+                <p id="composer-context" class="composer-context hidden"></p>
                 <div class="form-footer">
                     <div class="suggestions" aria-label="Example queries">
-                        <button type="button" class="suggestion" data-query="Show me the unemployment rate since 2020">
+                        <button type="button" class="suggestion" data-query="Show me the unemployment rate since 2020" title="Show me the unemployment rate since 2020">
                             Unemployment since 2020
                         </button>
-                        <button type="button" class="suggestion" data-query="How has California's GDP compared with Texas since 2019?">
+                        <button type="button" class="suggestion" data-query="How has California's GDP compared with Texas since 2019?" title="How has California's GDP compared with Texas since 2019?">
                             California vs Texas GDP
                         </button>
-                        <button type="button" class="suggestion" data-query="Compare New York and Florida GDP since 2015">
+                        <button type="button" class="suggestion" data-query="Compare New York and Florida GDP since 2015" title="Compare New York and Florida GDP since 2015">
                             NY vs FL GDP
                         </button>
-                        <button type="button" class="suggestion" data-query="What is the relationship between Brent crude oil prices and inflation since 2010?">
+                        <button type="button" class="suggestion" data-query="What is the relationship between Brent crude oil prices and inflation since 2010?" title="What is the relationship between Brent crude oil prices and inflation since 2010?">
                             Brent vs inflation
                         </button>
                     </div>
                     <button id="submit-button" class="submit-button" type="submit">Ask</button>
                 </div>
             </form>
-            <div id="clarification-inline" class="clarification-inline hidden" aria-live="polite">
-                <p id="clarification-question" class="clarification-question"></p>
-                <div id="clarification-options" class="clarification-options"></div>
-                <p id="clarification-hint" class="clarification-hint">Choose one, or keep typing to narrow it down.</p>
-            </div>
             <div id="status-row" class="status-row hidden" aria-live="polite">
                 <span id="status-pill" class="status-pill"></span>
                 <p id="status-text" class="status-text"></p>
             </div>
             <div id="error-banner" class="error-banner hidden" role="alert"></div>
-        </section>
-
-        <section id="results" class="results hidden">
-            <article id="chart-panel" class="panel chart-panel hidden">
-                <div id="chart" class="chart"></div>
-                <p id="source-note" class="source-note"></p>
-            </article>
-
-            <article class="panel answer-panel">
-                <div class="panel-heading">
-                    <h2 id="answer-heading">Analysis</h2>
-                </div>
-                <p id="answer-text" class="answer-text"></p>
-                <dl id="intent-summary" class="intent-summary"></dl>
-                <div id="warning-list" class="warning-list"></div>
-            </article>
-
-            <article id="metrics-panel" class="panel hidden">
-                <div class="panel-heading">
-                    <h2>Derived metrics</h2>
-                </div>
-                <div id="metrics-grid" class="metrics-grid"></div>
-            </article>
-
-            <article id="series-panel" class="panel hidden">
-                <div class="panel-heading">
-                    <h2>Series detail</h2>
-                </div>
-                <div id="series-grid" class="series-grid"></div>
-            </article>
         </section>
     </main>
 </body>

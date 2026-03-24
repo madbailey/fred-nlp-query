@@ -15,6 +15,8 @@ FRED NLP Query lets users interact with the FRED database conversationally. Inst
 
 The application parses your intent using an LLM, maps it to the correct FRED series and parameters, executes the query deterministically against the FRED API, and returns structured data — all through a REST API, browser UI, or CLI.
 The LLM is used *only* for intent parsing and clarification. All data retrieval and execution is deterministic.
+
+Multi-turn follow-up memory is supported on the `/api/ask` route. Each response returns a `session_id`; reuse that `session_id` on later asks to support follow-ups like "now make that YoY", "compare it to CPI", or "rank the top 5 instead" without restating the full query.
  
 ## Architecture
  
