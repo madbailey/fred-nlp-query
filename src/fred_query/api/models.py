@@ -15,6 +15,7 @@ class AskRequest(BaseModel):
 
     query: str
     session_id: str | None = None
+    base_revision_id: str | None = None
     selected_series_id: str | None = None
     selected_series_ids: list[str | None] = Field(default_factory=list)
 
@@ -29,6 +30,14 @@ class AskRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def validate_session_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @field_validator("base_revision_id")
+    @classmethod
+    def validate_base_revision_id(cls, value: str | None) -> str | None:
         if value is None:
             return None
         stripped = value.strip()
@@ -105,6 +114,7 @@ class ApiRoutedQueryResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     session_id: str
+    revision_id: str
     status: RoutedQueryStatus
     answer_text: str
     intent: QueryIntent
@@ -118,9 +128,11 @@ class ApiRoutedQueryResponse(BaseModel):
         response: RoutedQueryResponse,
         *,
         session_id: str,
+        revision_id: str,
     ) -> "ApiRoutedQueryResponse":
         return cls(
             session_id=session_id,
+            revision_id=revision_id,
             status=response.status,
             answer_text=response.answer_text,
             intent=response.intent,

@@ -157,7 +157,7 @@ class APITest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
-        self.assertIn("Ask a question about the economy.", response.text)
+        self.assertIn("Start with a question. Iterate on the result.", response.text)
 
     def test_static_assets(self) -> None:
         js_response = self.client.get("/static/app.js")
@@ -165,7 +165,7 @@ class APITest(unittest.TestCase):
 
         self.assertEqual(js_response.status_code, 200)
         self.assertIn("javascript", js_response.headers["content-type"])
-        self.assertIn("handleSubmit", js_response.text)
+        self.assertIn("mountWorkspaceApp", js_response.text)
         self.assertEqual(css_response.status_code, 200)
         self.assertIn("text/css", css_response.headers["content-type"])
         self.assertIn(".hero", css_response.text)
@@ -185,6 +185,7 @@ class APITest(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["status"], "completed")
         self.assertTrue(payload["session_id"])
+        self.assertTrue(payload["revision_id"])
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
 
     def test_ask_forwards_selected_series_id(self) -> None:
@@ -275,6 +276,42 @@ class APITest(unittest.TestCase):
 
         self.assertEqual(second.status_code, 200)
         self.assertEqual(second.json()["session_id"], session_id)
+        self.assertIsNotNone(service.last_call)
+        self.assertIsNotNone(service.last_call[3])
+        self.assertEqual(service.last_call[3].session_id, session_id)
+        self.assertEqual(service.last_call[3].last_query, "Show inflation")
+
+    def test_ask_uses_selected_base_revision_for_follow_up(self) -> None:
+        routed = RoutedQueryResponse(
+            status=RoutedQueryStatus.COMPLETED,
+            intent=_build_query_response().intent,
+            answer_text="Completed comparison.",
+            query_response=_build_query_response(),
+        )
+        service = _FakeNaturalLanguageQueryService(routed)
+        app.dependency_overrides[get_natural_language_query_service] = lambda: service
+
+        first = self.client.post("/api/ask", json={"query": "Show inflation"})
+        self.assertEqual(first.status_code, 200)
+        session_id = first.json()["session_id"]
+        first_revision_id = first.json()["revision_id"]
+
+        second = self.client.post(
+            "/api/ask",
+            json={"query": "Compare it to CPI", "session_id": session_id},
+        )
+        self.assertEqual(second.status_code, 200)
+
+        third = self.client.post(
+            "/api/ask",
+            json={
+                "query": "Now make that YoY",
+                "session_id": session_id,
+                "base_revision_id": first_revision_id,
+            },
+        )
+
+        self.assertEqual(third.status_code, 200)
         self.assertIsNotNone(service.last_call)
         self.assertIsNotNone(service.last_call[3])
         self.assertEqual(service.last_call[3].session_id, session_id)

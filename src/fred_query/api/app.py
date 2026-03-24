@@ -132,18 +132,26 @@ def create_app() -> FastAPI:
         query_session_service: QuerySessionService = Depends(get_query_session_service),
     ) -> ApiRoutedQueryResponse:
         session = query_session_service.get_or_create(request.session_id)
+        session_context = query_session_service.get_context(
+            session_id=session.session_id,
+            revision_id=request.base_revision_id,
+        )
         response = service.ask(
             request.query,
             selected_series_id=request.selected_series_id,
             selected_series_ids=request.selected_series_ids,
-            session_context=session,
+            session_context=session_context,
         )
-        query_session_service.store_turn(
+        stored_session, revision = query_session_service.store_turn(
             session_id=session.session_id,
             query=request.query,
             response=response,
         )
-        return ApiRoutedQueryResponse.from_routed_response(response, session_id=session.session_id)
+        return ApiRoutedQueryResponse.from_routed_response(
+            response,
+            session_id=stored_session.session_id,
+            revision_id=revision.revision_id,
+        )
 
     @app.post("/api/compare/state-gdp", response_model=ApiQueryResponse)
     def compare_state_gdp(
