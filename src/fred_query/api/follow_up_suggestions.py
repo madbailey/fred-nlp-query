@@ -57,7 +57,7 @@ def build_follow_up_suggestions(response: QueryResponse) -> list[str]:
 
     if intent.task_type == TaskType.SINGLE_SERIES_LOOKUP:
         _append_prompt(prompts, _single_series_compare_prompt(response))
-        _append_prompt(prompts, _single_series_transform_prompt(intent))
+        _append_prompt(prompts, _single_series_transform_prompt(response))
         _append_prompt(prompts, _single_series_peak_prompt(response))
         _append_prompt(prompts, _extend_prompt(intent, response.analysis.coverage_start))
         _append_prompt(prompts, _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end))
@@ -66,13 +66,13 @@ def build_follow_up_suggestions(response: QueryResponse) -> list[str]:
 
     if intent.task_type == TaskType.CROSS_SECTION:
         _append_prompt(prompts, _cross_section_flip_prompt(intent, response))
-        _append_prompt(prompts, _cross_section_limit_prompt(intent))
+        _append_prompt(prompts, _cross_section_limit_prompt(intent, response))
         _append_prompt(prompts, _cross_section_states_prompt(intent, response))
         _append_prompt(prompts, _latest_prompt(intent, task_type=intent.task_type))
         return prompts[:_MAX_SUGGESTIONS]
 
     if intent.task_type == TaskType.STATE_GDP_COMPARISON:
-        _append_prompt(prompts, _state_gdp_normalization_prompt(intent))
+        _append_prompt(prompts, _state_gdp_normalization_prompt(intent, response))
         _append_prompt(prompts, _extend_prompt(intent, response.analysis.coverage_start))
         _append_prompt(prompts, _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end))
         _append_prompt(prompts, _latest_prompt(intent, task_type=intent.task_type))
@@ -80,6 +80,7 @@ def build_follow_up_suggestions(response: QueryResponse) -> list[str]:
 
     if intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS):
         _append_prompt(prompts, _comparison_swap_prompt(response))
+        _append_prompt(prompts, _comparison_transform_prompt(response))
         _append_prompt(prompts, _extend_prompt(intent, response.analysis.coverage_start))
         _append_prompt(prompts, _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end))
         _append_prompt(prompts, _latest_prompt(intent, task_type=intent.task_type))
@@ -124,21 +125,60 @@ def _suggest_alternative_subject(series_results: list[SeriesAnalysis]) -> str | 
     return None
 
 
+def _display_subject(series_result: SeriesAnalysis | None) -> str:
+    if series_result is None:
+        return "this series"
+
+    series = series_result.series
+    title = (series.title or series.indicator or series.series_id or "this series").strip()
+    geography = (series.geography or "").strip()
+    if geography and geography.lower() not in title.lower():
+        return f"{geography} {title}"
+    return title
+
+
+def _indicator_label(response: QueryResponse) -> str:
+    series_results = response.analysis.series_results
+    if series_results:
+        indicator = (series_results[0].series.indicator or "").replace("_", " ").strip()
+        if indicator:
+            return indicator
+        title = (series_results[0].series.title or "").strip()
+        if title:
+            return title
+    indicators = [item.strip() for item in response.intent.indicators if item and item.strip()]
+    return indicators[0] if indicators else "this indicator"
+
+
+def _series_pair_text(response: QueryResponse) -> str:
+    series_results = response.analysis.series_results
+    if len(series_results) >= 2:
+        return f"{_display_subject(series_results[0])} and {_display_subject(series_results[1])}"
+    if len(series_results) == 1:
+        return _display_subject(series_results[0])
+    return "these series"
+
+
 def _single_series_compare_prompt(response: QueryResponse) -> str | None:
     subject = _suggest_alternative_subject(response.analysis.series_results[:1])
     if subject is None:
         return None
-    return f"How does this compare to {subject} over the same period?"
+    return f"Compare {_display_subject(response.analysis.series_results[0])} to {subject} over the same period"
 
 
-def _single_series_transform_prompt(intent: QueryIntent) -> str:
-    if intent.transform != TransformType.YEAR_OVER_YEAR_PERCENT_CHANGE:
-        return "Show this as year-over-year change"
-    if intent.transform != TransformType.ROLLING_AVERAGE:
-        return "Try a rolling average instead"
-    if intent.transform != TransformType.NORMALIZED_INDEX and not intent.normalization:
-        return "Normalize this to an index starting at 100"
-    return "Show this in reported levels instead"
+def _single_series_transform_prompt(response: QueryResponse) -> str:
+    intent = response.intent
+    subject = _display_subject(response.analysis.series_results[0] if response.analysis.series_results else None)
+
+    if intent.transform == TransformType.LEVEL and not intent.normalization:
+        return f"Show {subject} as year-over-year change"
+    if intent.transform == TransformType.YEAR_OVER_YEAR_PERCENT_CHANGE:
+        return f"Show {subject} in reported levels instead"
+    if intent.transform == TransformType.ROLLING_AVERAGE:
+        return f"Show {subject} in reported levels instead"
+    if intent.transform == TransformType.NORMALIZED_INDEX or intent.normalization:
+        return f"Normalize {subject} to 100 at the start"
+    return f"Show {subject} as year-over-year change"
 
 
 def _single_series_peak_prompt(response: QueryResponse) -> str | None:
@@ -148,33 +188,45 @@ def _single_series_peak_prompt(response: QueryResponse) -> str | None:
     context = response.analysis.series_results[0].historical_context
     if context is None or context.max_date is None:
         return None
-    return "What was the peak over this period?"
+    return f"When did {_display_subject(response.analysis.series_results[0])} peak during this period?"
 
 
 def _comparison_swap_prompt(response: QueryResponse) -> str | None:
     subject = _suggest_alternative_subject(response.analysis.series_results)
     if subject is None:
         return None
-    return f"Compare it to {subject} instead"
+    base_subject = _display_subject(response.analysis.series_results[0] if response.analysis.series_results else None)
+    return f"Compare {base_subject} to {subject} instead"
+
+
+def _comparison_transform_prompt(response: QueryResponse) -> str:
+    intent = response.intent
+    pair_text = _series_pair_text(response)
+    if intent.transform == TransformType.YEAR_OVER_YEAR_PERCENT_CHANGE:
+        return f"Show {pair_text} in reported levels instead"
+    if intent.transform == TransformType.NORMALIZED_INDEX or intent.normalization:
+        return f"Show {pair_text} in reported levels instead"
+    return f"Show {pair_text} as year-over-year change"
 
 
 def _cross_section_flip_prompt(intent: QueryIntent, response: QueryResponse) -> str:
     limit = _cross_section_display_limit(intent, response)
     direction = "bottom" if intent.sort_descending else "top"
     scope = intent.cross_section_scope or CrossSectionScope.SINGLE_SERIES
-    suffix = " states" if scope == CrossSectionScope.SINGLE_SERIES else ""
-    return f"Rank the {direction} {limit}{suffix} instead"
+    geography_suffix = " states" if scope in (CrossSectionScope.SINGLE_SERIES, CrossSectionScope.STATES) else ""
+    return f"Rank the {direction} {limit}{geography_suffix} by {_indicator_label(response)} instead"
 
 
-def _cross_section_limit_prompt(intent: QueryIntent) -> str | None:
+def _cross_section_limit_prompt(intent: QueryIntent, response: QueryResponse) -> str | None:
     scope = intent.cross_section_scope or CrossSectionScope.SINGLE_SERIES
     direction = "top" if intent.sort_descending else "bottom"
     if scope == CrossSectionScope.SINGLE_SERIES:
-        return f"Rank the {direction} 10 states by this indicator"
+        return f"Rank the {direction} 10 states by {_indicator_label(response)}"
 
     current_limit = intent.rank_limit or 10
     alternate_limit = 5 if current_limit != 5 else 10
-    return f"Rank the {direction} {alternate_limit} instead"
+    geography_suffix = " states" if scope == CrossSectionScope.STATES else ""
+    return f"Rank the {direction} {alternate_limit}{geography_suffix} by {_indicator_label(response)}"
 
 
 def _cross_section_states_prompt(intent: QueryIntent, response: QueryResponse) -> str | None:
@@ -183,7 +235,7 @@ def _cross_section_states_prompt(intent: QueryIntent, response: QueryResponse) -
         return None
     if len(response.analysis.series_results) >= 2:
         return "Use the latest available observation instead" if intent.observation_date else None
-    return "Rank all states by this indicator"
+    return f"Rank all states by {_indicator_label(response)}"
 
 
 def _cross_section_display_limit(intent: QueryIntent, response: QueryResponse) -> int:
@@ -195,10 +247,11 @@ def _cross_section_display_limit(intent: QueryIntent, response: QueryResponse) -
     return min(result_count, 10)
 
 
-def _state_gdp_normalization_prompt(intent: QueryIntent) -> str:
+def _state_gdp_normalization_prompt(intent: QueryIntent, response: QueryResponse) -> str:
+    pair_text = _series_pair_text(response)
     if intent.normalization or intent.transform == TransformType.NORMALIZED_INDEX:
-        return "Show this in reported GDP levels instead"
-    return "Normalize both states to 100 at the start"
+        return f"Show {pair_text} in reported GDP levels instead"
+    return f"Normalize {pair_text} to 100 at the start"
 
 
 def _extend_prompt(intent: QueryIntent, coverage_start: date | None) -> str | None:

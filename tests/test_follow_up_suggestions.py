@@ -92,9 +92,9 @@ class FollowUpSuggestionsTest(unittest.TestCase):
         self.assertEqual(
             suggestions,
             [
-                "How does this compare to inflation over the same period?",
-                "Show this as year-over-year change",
-                "What was the peak over this period?",
+                "Compare United States Unemployment Rate to inflation over the same period",
+                "Show United States Unemployment Rate as year-over-year change",
+                "When did United States Unemployment Rate peak during this period?",
             ],
         )
 
@@ -143,9 +143,9 @@ class FollowUpSuggestionsTest(unittest.TestCase):
         self.assertEqual(
             suggestions,
             [
-                "Compare it to unemployment instead",
+                "Compare Global Crude Oil Prices: Brent - Europe to unemployment instead",
+                "Show Global Crude Oil Prices: Brent - Europe and United States Consumer Price Index for All Urban Consumers as year-over-year change",
                 "Extend this back to 2000",
-                "Focus on the period since 2020 instead",
             ],
         )
 
@@ -194,8 +194,8 @@ class FollowUpSuggestionsTest(unittest.TestCase):
         self.assertEqual(
             suggestions,
             [
-                "Rank the bottom 10 instead",
-                "Rank the top 5 instead",
+                "Rank the bottom 10 states by unemployment rate instead",
+                "Rank the top 5 states by unemployment rate",
                 "Use the latest available observation instead",
             ],
         )
@@ -254,9 +254,50 @@ class FollowUpSuggestionsTest(unittest.TestCase):
         self.assertEqual(
             api_response.follow_up_suggestions,
             [
-                "Show this in reported GDP levels instead",
+                "Show Real GDP: California and Real GDP: Texas in reported GDP levels instead",
                 "Extend this back to 2000",
             ],
+        )
+
+    def test_single_series_yoy_suggestion_toggles_back_to_levels(self) -> None:
+        response = QueryResponse(
+            intent=QueryIntent(
+                task_type=TaskType.SINGLE_SERIES_LOOKUP,
+                search_text="inflation",
+                indicators=["inflation"],
+                transform=TransformType.YEAR_OVER_YEAR_PERCENT_CHANGE,
+            ),
+            analysis=AnalysisResult(
+                series_results=[
+                    SeriesAnalysis(
+                        series=_series(
+                            series_id="CPIAUCSL",
+                            title="Consumer Price Index for All Urban Consumers",
+                            indicator="inflation",
+                            geography="United States",
+                        ),
+                        latest_value=3.1,
+                        latest_observation_date=date(2024, 1, 1),
+                    )
+                ],
+                coverage_start=date(2015, 1, 1),
+                coverage_end=date(2024, 1, 1),
+            ),
+            chart=ChartSpec(
+                title="Inflation",
+                x_axis=AxisSpec(title="Date"),
+                y_axis=AxisSpec(title="Percent"),
+                series=[ChartTrace(name="CPIAUCSL")],
+                source_note="Source: FRED",
+            ),
+            answer_text="Completed single-series lookup.",
+        )
+
+        suggestions = build_follow_up_suggestions(response)
+
+        self.assertIn(
+            "Show United States Consumer Price Index for All Urban Consumers in reported levels instead",
+            suggestions,
         )
 
 

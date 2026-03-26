@@ -187,7 +187,10 @@ class APITest(unittest.TestCase):
         self.assertTrue(payload["session_id"])
         self.assertTrue(payload["revision_id"])
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
-        self.assertIn("Show this in reported GDP levels instead", payload["follow_up_suggestions"])
+        self.assertIn(
+            "Show Real GDP: California and Real GDP: Texas in reported GDP levels instead",
+            payload["follow_up_suggestions"],
+        )
 
     def test_ask_forwards_selected_series_id(self) -> None:
         routed = RoutedQueryResponse(
@@ -340,7 +343,10 @@ class APITest(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["answer_text"], "Completed comparison.")
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
-        self.assertIn("Show this in reported GDP levels instead", payload["follow_up_suggestions"])
+        self.assertIn(
+            "Show Real GDP: California and Real GDP: Texas in reported GDP levels instead",
+            payload["follow_up_suggestions"],
+        )
 
     def test_ask_blank_query_returns_validation_error(self) -> None:
         response = self.client.post("/api/ask", json={"query": "   "})
