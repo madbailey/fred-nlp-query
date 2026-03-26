@@ -12,6 +12,8 @@ export function createResultRenderer(elements) {
         answerText,
         intentSummary,
         warningList,
+        followUpPanel,
+        followUpList,
         metricsPanel,
         metricsGrid,
         chartPanel,
@@ -38,6 +40,7 @@ export function createResultRenderer(elements) {
         answerText.textContent = "";
         intentSummary.innerHTML = "";
         warningList.innerHTML = "";
+        followUpList.innerHTML = "";
         metricsGrid.innerHTML = "";
         seriesGrid.innerHTML = "";
         chartTitle.textContent = "";
@@ -48,6 +51,7 @@ export function createResultRenderer(elements) {
         setHidden(chartPanel, true);
         setHidden(metricsPanel, true);
         setHidden(seriesPanel, true);
+        setHidden(followUpPanel, true);
         if (window.Plotly) {
             window.Plotly.purge(chartElement);
         }
@@ -238,6 +242,28 @@ export function createResultRenderer(elements) {
         warningList.innerHTML = warnings
             .map((warning) => `<span class="warning-chip">${escapeHtml(warning)}</span>`)
             .join("");
+    }
+
+    function renderFollowUpSuggestions(suggestions, { hideFollowUps = false } = {}) {
+        if (hideFollowUps || !Array.isArray(suggestions) || suggestions.length === 0) {
+            followUpList.innerHTML = "";
+            setHidden(followUpPanel, true);
+            return;
+        }
+
+        followUpList.innerHTML = suggestions
+            .map((query) => `
+                <button
+                    type="button"
+                    class="follow-up-suggestion"
+                    data-query="${escapeHtml(query)}"
+                    title="${escapeHtml(query)}"
+                >
+                    ${escapeHtml(query)}
+                </button>
+            `)
+            .join("");
+        setHidden(followUpPanel, false);
     }
 
     function renderDerivedMetrics(metrics) {
@@ -448,7 +474,7 @@ export function createResultRenderer(elements) {
         setHidden(seriesPanel, false);
     }
 
-    function renderResultPayload(response) {
+    function renderResultPayload(response, options = {}) {
         if (!response?.result) {
             clearResultCanvas();
             return;
@@ -458,6 +484,7 @@ export function createResultRenderer(elements) {
         answerText.textContent = response.answer_text || "";
         renderIntent(response.intent || {});
         renderWarnings(response.result?.analysis?.warnings || []);
+        renderFollowUpSuggestions(response.follow_up_suggestions || [], options);
         renderDerivedMetrics(response.result?.analysis?.derived_metrics || []);
         renderChart(response.plotly_figure, response);
         renderSeriesResults(response.result?.analysis?.series_results || []);
@@ -525,10 +552,15 @@ export function createResultRenderer(elements) {
         return Array.from(clarificationOptions.querySelectorAll(".clarification-option"));
     }
 
+    function getFollowUpButtons() {
+        return Array.from(followUpList.querySelectorAll(".follow-up-suggestion"));
+    }
+
     return {
         clearClarificationPanel,
         clearResultCanvas,
         getClarificationButtons,
+        getFollowUpButtons,
         renderClarificationPanel,
         renderResultPayload,
         renderUnsupportedPanel,

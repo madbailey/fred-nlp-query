@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
+from fred_query.api.follow_up_suggestions import build_follow_up_suggestions
 from fred_query.schemas.analysis import QueryResponse, RoutedQueryResponse, RoutedQueryStatus
 from fred_query.schemas.intent import QueryIntent
 from fred_query.schemas.resolved_series import SeriesSearchMatch
@@ -100,6 +101,7 @@ class ApiQueryResponse(BaseModel):
     answer_text: str
     result: QueryResponse
     plotly_figure: dict[str, Any]
+    follow_up_suggestions: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_query_response(cls, response: QueryResponse) -> "ApiQueryResponse":
@@ -107,6 +109,7 @@ class ApiQueryResponse(BaseModel):
             answer_text=response.answer_text,
             result=response,
             plotly_figure=response.chart.to_plotly_dict(),
+            follow_up_suggestions=build_follow_up_suggestions(response),
         )
 
 
@@ -121,6 +124,7 @@ class ApiRoutedQueryResponse(BaseModel):
     candidate_series: list[SeriesSearchMatch] = Field(default_factory=list)
     result: QueryResponse | None = None
     plotly_figure: dict[str, Any] | None = None
+    follow_up_suggestions: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_routed_response(
@@ -139,4 +143,9 @@ class ApiRoutedQueryResponse(BaseModel):
             candidate_series=response.candidate_series,
             result=response.query_response,
             plotly_figure=response.query_response.chart.to_plotly_dict() if response.query_response else None,
+            follow_up_suggestions=(
+                build_follow_up_suggestions(response.query_response)
+                if response.query_response is not None
+                else []
+            ),
         )

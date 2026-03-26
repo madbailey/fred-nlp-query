@@ -157,7 +157,7 @@ class APITest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
-        self.assertIn("Start with a question. Iterate on the result.", response.text)
+        self.assertIn("Ask a question about FRED data", response.text)
 
     def test_static_assets(self) -> None:
         js_response = self.client.get("/static/app.js")
@@ -187,6 +187,7 @@ class APITest(unittest.TestCase):
         self.assertTrue(payload["session_id"])
         self.assertTrue(payload["revision_id"])
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
+        self.assertIn("Show this in reported GDP levels instead", payload["follow_up_suggestions"])
 
     def test_ask_forwards_selected_series_id(self) -> None:
         routed = RoutedQueryResponse(
@@ -339,6 +340,7 @@ class APITest(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["answer_text"], "Completed comparison.")
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
+        self.assertIn("Show this in reported GDP levels instead", payload["follow_up_suggestions"])
 
     def test_ask_blank_query_returns_validation_error(self) -> None:
         response = self.client.post("/api/ask", json={"query": "   "})
