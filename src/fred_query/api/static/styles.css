@@ -438,6 +438,52 @@ h2 {
     white-space: pre-wrap;
 }
 
+.follow-up-panel {
+    display: grid;
+    gap: 14px;
+}
+
+.follow-up-copy {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.follow-up-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.follow-up-suggestion {
+    width: 100%;
+    padding: 13px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, rgba(13, 115, 119, 0.07), rgba(255, 255, 255, 0.96));
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.follow-up-suggestion:hover,
+.follow-up-suggestion:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    transform: translateY(-1px);
+}
+
+.follow-up-suggestion:disabled {
+    opacity: 0.68;
+    cursor: wait;
+    transform: none;
+}
+
 /* ── Intent summary (collapsible) ── */
 
 .intent-details {

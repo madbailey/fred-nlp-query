@@ -42,6 +42,8 @@ export function mountWorkspaceApp() {
         answerText: document.getElementById("answer-text"),
         intentSummary: document.getElementById("intent-summary"),
         warningList: document.getElementById("warning-list"),
+        followUpPanel: document.getElementById("follow-up-panel"),
+        followUpList: document.getElementById("follow-up-list"),
         metricsPanel: document.getElementById("metrics-panel"),
         metricsGrid: document.getElementById("metrics-grid"),
         chartPanel: document.getElementById("chart-panel"),
@@ -269,7 +271,9 @@ export function mountWorkspaceApp() {
         resultRenderer.renderClarificationPanel(activeRevision, selectedClarificationSeriesId);
         resultRenderer.renderUnsupportedPanel(activeRevision);
         if (referenceRevision && activeRevision.response?.status !== "unsupported") {
-            resultRenderer.renderResultPayload(referenceRevision.response);
+            resultRenderer.renderResultPayload(referenceRevision.response, {
+                hideFollowUps: activeRevision.response?.status === "needs_clarification",
+            });
             setHidden(elements.emptyStatePanel, true);
         } else {
             resultRenderer.clearResultCanvas();
@@ -329,6 +333,9 @@ export function mountWorkspaceApp() {
             button.disabled = nextLoading;
         });
         resultRenderer.getClarificationButtons().forEach((button) => {
+            button.disabled = nextLoading;
+        });
+        resultRenderer.getFollowUpButtons().forEach((button) => {
             button.disabled = nextLoading;
         });
         renderApp();
@@ -454,6 +461,14 @@ export function mountWorkspaceApp() {
             selectedSeriesIds,
             replaceRevisionId: activeRevision.id,
         });
+    });
+    elements.followUpList.addEventListener("click", (event) => {
+        const button = event.target.closest(".follow-up-suggestion");
+        if (!button || isLoading) {
+            return;
+        }
+        elements.queryInput.value = button.dataset.query || "";
+        elements.queryForm.requestSubmit();
     });
     elements.queryInput.addEventListener("input", () => {
         selectedClarificationSeriesId = null;
