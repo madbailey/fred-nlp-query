@@ -160,8 +160,80 @@ class FREDClient:
         return observations
 
     def get_series_vintage_dates(self, series_id: str, limit: int = 1000) -> list[date]:
+        """
+        Get the dates in history when a series' data values were revised or new data released.
+
+        Args:
+            series_id: The ID of the series to retrieve vintage dates for
+            limit: Maximum number of vintage dates to return
+
+        Returns:
+            List of dates when the series was updated with new data
+        """
         payload = self._request(
             "series/vintagedates",
             params={"series_id": series_id, "limit": limit},
         )
         return [date.fromisoformat(value) for value in payload.get("vintage_dates", [])]
+
+    def get_series_observations_for_vintage_date(
+        self,
+        series_id: str,
+        vintage_date: date,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        *,
+        frequency: str | None = None,
+        aggregation_method: str | None = None,
+        limit: int | None = None,
+        sort_order: str | None = None,
+    ) -> list[ObservationPoint]:
+        """
+        Get series observations as they existed on a specific vintage date.
+        This allows you to see what data was available on a specific date in history.
+
+        Args:
+            series_id: The ID of the series to retrieve
+            vintage_date: The vintage date to get observations for
+            start_date: Optional start date for observations
+            end_date: Optional end date for observations
+            frequency: Observation frequency (e.g., 'm' for monthly)
+            aggregation_method: Aggregation method ('avg', 'sum', 'eop')
+            limit: Maximum number of observations to return
+            sort_order: Sort order ('asc', 'desc')
+
+        Returns:
+            List of observation points as they existed on the vintage date
+        """
+        params: dict[str, Any] = {
+            "series_id": series_id,
+            "vintage_dates": vintage_date.isoformat()  # Parameter name for vintage date
+        }
+        if start_date is not None:
+            params["observation_start"] = start_date.isoformat()
+        if end_date is not None:
+            params["observation_end"] = end_date.isoformat()
+        if frequency:
+            params["frequency"] = frequency
+        if aggregation_method:
+            params["aggregation_method"] = aggregation_method
+        if limit is not None:
+            params["limit"] = limit
+        if sort_order:
+            params["sort_order"] = sort_order
+
+        payload = self._request("series/observations", params=params)
+        observations: list[ObservationPoint] = []
+        for item in payload.get("observations", []):
+            raw_value = item.get("value", ".")
+            if raw_value == ".":
+                continue
+
+            observations.append(
+                ObservationPoint(
+                    date=date.fromisoformat(item["date"]),
+                    value=float(raw_value),
+                )
+            )
+
+        return observations

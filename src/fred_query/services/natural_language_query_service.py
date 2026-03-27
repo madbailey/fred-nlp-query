@@ -14,6 +14,7 @@ from fred_query.services.openai_parser_service import OpenAIIntentParser
 from fred_query.services.query_session_service import QuerySession
 from fred_query.services.relationship_service import RelationshipAnalysisService
 from fred_query.services.single_series_service import SingleSeriesLookupService
+from fred_query.services.vintage_analysis_service import VintageAnalysisService
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +138,7 @@ class NaturalLanguageQueryService:
         cross_section_service: CrossSectionService | None = None,
         single_series_service: SingleSeriesLookupService | None = None,
         relationship_service: RelationshipAnalysisService | None = None,
+        vintage_analysis_service: VintageAnalysisService | None = None,
     ) -> None:
         self.parser = parser
         self.fred_client = fred_client
@@ -144,6 +146,7 @@ class NaturalLanguageQueryService:
         self.cross_section_service = cross_section_service or CrossSectionService(fred_client)
         self.single_series_service = single_series_service or SingleSeriesLookupService(fred_client)
         self.relationship_service = relationship_service or RelationshipAnalysisService(fred_client)
+        self.vintage_analysis_service = vintage_analysis_service or VintageAnalysisService(fred_client)
 
     @staticmethod
     def _default_start_date() -> date:
