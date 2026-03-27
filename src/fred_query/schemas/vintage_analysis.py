@@ -28,12 +28,20 @@ class VintageSeriesData(BaseModel):
 
     def get_first_release_value(self, obs_date: date) -> Optional[float]:
         """Get the first-release value for a specific observation date"""
-        first_vintage = min(self.vintage_dates) if self.vintage_dates else None
-        if not first_vintage:
+        # Find the earliest vintage date that contains this observation
+        relevant_vintages = [
+            obs.vintage_date for obs in self.vintage_observations
+            if obs.date == obs_date
+        ]
+
+        if not relevant_vintages:
             return None
 
+        first_vintage_with_obs = min(relevant_vintages)
+
+        # Find the observation from that vintage date
         for obs in self.vintage_observations:
-            if obs.date == obs_date and obs.vintage_date == first_vintage:
+            if obs.date == obs_date and obs.vintage_date == first_vintage_with_obs:
                 return obs.value
         return None
 

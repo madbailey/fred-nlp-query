@@ -46,8 +46,8 @@ class VintageAnalysisService:
         # Get observations for each vintage date
         all_vintage_observations: List[VintageObservation] = []
 
-        # Limit vintage dates to avoid too many API calls
-        vintage_dates_limited = vintage_dates[:min(10, len(vintage_dates))]
+        # Limit vintage dates to avoid too many API calls - keep the latest ones for accuracy
+        vintage_dates_limited = vintage_dates[-min(10, len(vintage_dates)):]
 
         for vintage_date in vintage_dates_limited:
             try:
@@ -147,16 +147,17 @@ class VintageAnalysisService:
         if not vintage_dates:
             return None
 
-        first_vintage = min(vintage_dates)
-        try:
-            observations = self.fred_client.get_series_observations_for_vintage_date(
-                series_id, first_vintage
-            )
-            for obs in observations:
-                if obs.date == obs_date:
-                    return obs.value
-        except Exception:
-            pass
+        # Find the first vintage that contains the observation date
+        for vintage_date in sorted(vintage_dates):
+            try:
+                observations = self.fred_client.get_series_observations_for_vintage_date(
+                    series_id, vintage_date
+                )
+                for obs in observations:
+                    if obs.date == obs_date:
+                        return obs.value
+            except Exception:
+                continue  # Skip this vintage if it fails
 
         return None
 
