@@ -8,6 +8,7 @@ from fred_query.services.answer_service import AnswerService
 from fred_query.services.chart_service import ChartService
 from fred_query.services.fred_client import FREDClient
 from fred_query.services.transform_service import TransformService
+from fred_query.schemas.intent import TransformType
 
 
 class RelationshipAnalysisService:
@@ -133,15 +134,35 @@ class RelationshipAnalysisService:
 
         start_date = intent.start_date or self._default_start_date()
         end_date = intent.end_date
+        effective_transform = (
+            TransformType.LEVEL if intent.transform == TransformType.NORMALIZED_INDEX else intent.transform
+        )
+        transform_window, transform_warnings = self.transform_service.resolve_transform_window(
+            transform=effective_transform,
+            frequency=metadata_items[0].frequency,
+            requested_window=intent.transform_window,
+        )
+        warmup_periods = self.transform_service.transform_warmup_periods(
+            transform=effective_transform,
+            periods_per_year=periods_per_year,
+            window=transform_window,
+        )
+        fetch_start_date = self.transform_service.subtract_periods(
+            start_date,
+            periods=warmup_periods,
+            frequency=frequency_code,
+        )
         raw_observations: list[list] = []
         transformed_observations: list[list] = []
         bases: list[str] = []
         analysis_units: list[str] = []
+        warnings = list(transform_warnings)
+        applied_transform_window: int | None = None
 
         for metadata in metadata_items:
             observations = self.fred_client.get_series_observations(
                 metadata.series_id,
-                start_date=start_date,
+                start_date=fetch_start_date,
                 end_date=end_date,
                 frequency=frequency_code,
                 aggregation_method="avg",
@@ -149,21 +170,49 @@ class RelationshipAnalysisService:
             if not observations:
                 raise ValueError(f"No observations returned for {metadata.series_id}.")
 
-            transformed, basis, units = self.transform_service.build_relationship_basis(
+            visible_observations = self.transform_service.filter_observations_by_date(
                 observations,
-                title=metadata.title,
-                units=metadata.units,
-                periods_per_year=periods_per_year,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            if not visible_observations:
+                raise ValueError(f"No observations returned for {metadata.series_id} in the requested display window.")
+
+            basis_source_observations = observations if warmup_periods > 0 else visible_observations
+            transformed, basis, units, applied_window, basis_warnings = (
+                self.transform_service.build_relationship_basis(
+                    basis_source_observations,
+                    title=metadata.title,
+                    units=metadata.units,
+                    frequency=metadata.frequency,
+                    periods_per_year=periods_per_year,
+                    transform=intent.transform,
+                    normalization=intent.normalization,
+                    requested_window=transform_window,
+                )
             )
             if not transformed:
                 raise ValueError(
                     f"I could not derive a stable comparison basis for {metadata.series_id} over the requested date range."
                 )
 
-            raw_observations.append(observations)
+            transformed = self.transform_service.filter_observations_by_date(
+                transformed,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            if not transformed:
+                raise ValueError(
+                    f"I could not derive {basis.lower()} for {metadata.series_id} over the requested display window."
+                )
+
+            raw_observations.append(visible_observations)
             transformed_observations.append(transformed)
             bases.append(basis)
             analysis_units.append(units)
+            if applied_window is not None:
+                applied_transform_window = applied_window
+            warnings.extend(basis_warnings)
 
         aligned_first, aligned_second = self.transform_service.align_on_dates(
             transformed_observations[0],
@@ -184,7 +233,6 @@ class RelationshipAnalysisService:
 
         chart_series = [aligned_first, aligned_second]
         chart_units = analysis_units[0]
-        warnings: list[str] = []
         basis_summary = (
             bases[0]
             if bases[0] == bases[1]
@@ -235,6 +283,19 @@ class RelationshipAnalysisService:
                 description="Number of aligned observations used in the same-period relationship estimate.",
             ),
         ]
+        if applied_transform_window is not None and effective_transform in (
+            TransformType.ROLLING_AVERAGE,
+            TransformType.ROLLING_STDDEV,
+            TransformType.ROLLING_VOLATILITY,
+        ):
+            derived_metrics.append(
+                DerivedMetric(
+                    name="applied_transform_window",
+                    value=applied_transform_window,
+                    unit="observations",
+                    description="Rolling window length used for the pairwise analysis basis.",
+                )
+            )
 
         if same_period_correlation is not None:
             derived_metrics.append(
