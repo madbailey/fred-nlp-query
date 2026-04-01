@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import AsyncExitStack, asynccontextmanager
 import logging
 from pathlib import Path
+from typing import Any, TypeVar
 
-from fastapi import Depends, FastAPI, Request, status
+from fastapi import Body, Depends, FastAPI, Request, Response, status
+from fastapi.dependencies.utils import get_dependant, solve_dependencies
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 
 from fred_query.errors import ConfigurationError, UpstreamServiceError
 from fred_query.api.models import ApiQueryResponse, ApiRoutedQueryResponse, AskRequest, StateGDPCompareRequest
@@ -22,6 +27,7 @@ from fred_query.services import (
 STATIC_DIR = Path(__file__).parent / "static"
 LOGGER = logging.getLogger(__name__)
 QUERY_SESSION_SERVICE = QuerySessionService()
+T = TypeVar("T")
 
 
 def get_app_settings() -> Settings:
@@ -29,21 +35,22 @@ def get_app_settings() -> Settings:
 
 
 def get_fred_client(settings: Settings = Depends(get_app_settings)) -> Iterator[FREDClient]:
-    client = FREDClient(
-        api_key=settings.fred_api_key or "",
-        base_url=settings.fred_base_url,
-        timeout_seconds=settings.http_timeout_seconds,
-    )
+    client = _create_fred_client(settings)
     try:
         yield client
     finally:
         client.close()
 
 
-def get_natural_language_query_service(
-    settings: Settings = Depends(get_app_settings),
-    fred_client: FREDClient = Depends(get_fred_client),
-) -> NaturalLanguageQueryService:
+def _create_fred_client(settings: Settings) -> FREDClient:
+    return FREDClient(
+        api_key=settings.fred_api_key or "",
+        base_url=settings.fred_base_url,
+        timeout_seconds=settings.http_timeout_seconds,
+    )
+
+
+def _create_natural_language_query_service(settings: Settings, fred_client: FREDClient) -> NaturalLanguageQueryService:
     parser = OpenAIIntentParser(
         api_key=settings.openai_api_key or "",
         model=settings.openai_model,
@@ -55,6 +62,13 @@ def get_natural_language_query_service(
     )
 
 
+def get_natural_language_query_service(
+    settings: Settings = Depends(get_app_settings),
+    fred_client: FREDClient = Depends(get_fred_client),
+) -> NaturalLanguageQueryService:
+    return _create_natural_language_query_service(settings, fred_client)
+
+
 def get_state_gdp_comparison_service(
     fred_client: FREDClient = Depends(get_fred_client),
 ) -> StateGDPComparisonService:
@@ -63,6 +77,50 @@ def get_state_gdp_comparison_service(
 
 def get_query_session_service() -> QuerySessionService:
     return QUERY_SESSION_SERVICE
+
+
+def _validate_request_model(model_type: type[T], payload: Any) -> T:
+    try:
+        return model_type.model_validate(payload)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors(), body=payload) from exc
+
+
+async def _resolve_natural_language_query_service(
+    service: NaturalLanguageQueryService = Depends(get_natural_language_query_service),
+) -> NaturalLanguageQueryService:
+    return service
+
+
+async def _resolve_state_gdp_comparison_service(
+    service: StateGDPComparisonService = Depends(get_state_gdp_comparison_service),
+) -> StateGDPComparisonService:
+    return service
+
+
+@asynccontextmanager
+async def _managed_dependency(
+    request: Request,
+    dependency: Callable[..., Any],
+    *,
+    value_name: str,
+) -> AsyncIterator[Any]:
+    dependant = get_dependant(path=request.scope["path"], call=dependency)
+    async with AsyncExitStack() as async_exit_stack:
+        solved = await solve_dependencies(
+            request=request,
+            dependant=dependant,
+            body=None,
+            background_tasks=None,
+            response=Response(),
+            dependency_overrides_provider=request.app,
+            dependency_cache=None,
+            async_exit_stack=async_exit_stack,
+            embed_body_fields=False,
+        )
+        if solved.errors:
+            raise RequestValidationError(solved.errors)
+        yield solved.values[value_name]
 
 
 def create_app() -> FastAPI:
@@ -126,22 +184,28 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.post("/api/ask", response_model=ApiRoutedQueryResponse)
-    def ask(
-        request: AskRequest,
-        service: NaturalLanguageQueryService = Depends(get_natural_language_query_service),
+    async def ask(
+        http_request: Request,
+        payload: dict[str, Any] = Body(...),
         query_session_service: QuerySessionService = Depends(get_query_session_service),
     ) -> ApiRoutedQueryResponse:
+        request = _validate_request_model(AskRequest, payload)
         session = query_session_service.get_or_create(request.session_id)
         session_context = query_session_service.get_context(
             session_id=session.session_id,
             revision_id=request.base_revision_id,
         )
-        response = service.ask(
-            request.query,
-            selected_series_id=request.selected_series_id,
-            selected_series_ids=request.selected_series_ids,
-            session_context=session_context,
-        )
+        async with _managed_dependency(
+            http_request,
+            _resolve_natural_language_query_service,
+            value_name="service",
+        ) as service:
+            response = service.ask(
+                request.query,
+                selected_series_id=request.selected_series_id,
+                selected_series_ids=request.selected_series_ids,
+                session_context=session_context,
+            )
         stored_session, revision = query_session_service.store_turn(
             session_id=session.session_id,
             query=request.query,
@@ -154,17 +218,23 @@ def create_app() -> FastAPI:
         )
 
     @app.post("/api/compare/state-gdp", response_model=ApiQueryResponse)
-    def compare_state_gdp(
-        request: StateGDPCompareRequest,
-        service: StateGDPComparisonService = Depends(get_state_gdp_comparison_service),
+    async def compare_state_gdp(
+        http_request: Request,
+        payload: dict[str, Any] = Body(...),
     ) -> ApiQueryResponse:
-        response = service.compare(
-            state1=request.state1,
-            state2=request.state2,
-            start_date=request.start_date,
-            end_date=request.end_date,
-            normalize=request.normalize,
-        )
+        request = _validate_request_model(StateGDPCompareRequest, payload)
+        async with _managed_dependency(
+            http_request,
+            _resolve_state_gdp_comparison_service,
+            value_name="service",
+        ) as service:
+            response = service.compare(
+                state1=request.state1,
+                state2=request.state2,
+                start_date=request.start_date,
+                end_date=request.end_date,
+                normalize=request.normalize,
+            )
         return ApiQueryResponse.from_query_response(response)
 
     return app
