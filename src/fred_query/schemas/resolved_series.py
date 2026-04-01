@@ -3,11 +3,28 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ClarificationBadge(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    kind: str
+    label: str
+
+
+class ClarificationOption(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    label: str | None = None
+    title: str | None = None
+    hint: str | None = None
+    badges: list[ClarificationBadge] = Field(default_factory=list)
+
+
 class SeriesSearchMatch(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     series_id: str
     title: str
+    clarification_option: ClarificationOption | None = None
     selection_label: str | None = None
     selection_hint: str | None = None
     selection_badges: list[str] = Field(default_factory=list)

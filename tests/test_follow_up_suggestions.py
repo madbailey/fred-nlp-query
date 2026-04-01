@@ -90,7 +90,7 @@ class FollowUpSuggestionsTest(unittest.TestCase):
         suggestions = build_follow_up_suggestions(response)
 
         self.assertEqual(
-            suggestions,
+            [item.query for item in suggestions],
             [
                 "Compare United States Unemployment Rate to inflation over the same period",
                 "Show United States Unemployment Rate as year-over-year change",
@@ -141,7 +141,7 @@ class FollowUpSuggestionsTest(unittest.TestCase):
         suggestions = build_follow_up_suggestions(response)
 
         self.assertEqual(
-            suggestions,
+            [item.query for item in suggestions],
             [
                 "Compare Global Crude Oil Prices: Brent - Europe to unemployment instead",
                 "Show Global Crude Oil Prices: Brent - Europe and United States Consumer Price Index for All Urban Consumers as year-over-year change",
@@ -192,7 +192,7 @@ class FollowUpSuggestionsTest(unittest.TestCase):
         suggestions = build_follow_up_suggestions(response)
 
         self.assertEqual(
-            suggestions,
+            [item.query for item in suggestions],
             [
                 "Rank the bottom 10 states by unemployment rate instead",
                 "Rank the top 5 states by unemployment rate",
@@ -252,7 +252,7 @@ class FollowUpSuggestionsTest(unittest.TestCase):
         api_response = ApiQueryResponse.from_query_response(response)
 
         self.assertEqual(
-            api_response.follow_up_suggestions,
+            [item.query for item in api_response.follow_up_suggestions],
             [
                 "Show Real GDP: California and Real GDP: Texas in reported GDP levels instead",
                 "Extend this back to 2000",
@@ -297,7 +297,7 @@ class FollowUpSuggestionsTest(unittest.TestCase):
 
         self.assertIn(
             "Show United States Consumer Price Index for All Urban Consumers in reported levels instead",
-            suggestions,
+            [item.query for item in suggestions],
         )
 
 

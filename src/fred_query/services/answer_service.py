@@ -245,13 +245,30 @@ class AnswerService:
         first, second = analysis.series_results
         start_year = analysis.coverage_start.year if analysis.coverage_start else "the requested start"
         end_year = analysis.coverage_end.year if analysis.coverage_end else "the latest available year"
-        frequency = self._metric_value(analysis, "common_frequency")
-        basis = self._metric_value(analysis, "analysis_basis")
-        overlap = self._metric_value(analysis, "overlap_observations")
-        same_period_correlation = self._metric_value(analysis, "same_period_correlation")
-        strongest_lag = self._metric_value(analysis, "strongest_lag_periods")
-        strongest_lag_correlation = self._metric_value(analysis, "strongest_lag_correlation")
-        lag_unit = self._metric_unit(analysis, "strongest_lag_periods") or "periods"
+        summary = analysis.relationship_summary
+        frequency = summary.common_frequency if summary is not None else self._metric_value(analysis, "common_frequency")
+        basis = summary.analysis_basis if summary is not None else self._metric_value(analysis, "analysis_basis")
+        overlap = (
+            summary.overlap_observations if summary is not None else self._metric_value(analysis, "overlap_observations")
+        )
+        same_period_correlation = (
+            summary.same_period_correlation
+            if summary is not None
+            else self._metric_value(analysis, "same_period_correlation")
+        )
+        strongest_lag = (
+            summary.strongest_lag_periods if summary is not None else self._metric_value(analysis, "strongest_lag_periods")
+        )
+        strongest_lag_correlation = (
+            summary.strongest_lag_correlation
+            if summary is not None
+            else self._metric_value(analysis, "strongest_lag_correlation")
+        )
+        lag_unit = (
+            summary.strongest_lag_unit
+            if summary is not None and summary.strongest_lag_unit
+            else self._metric_unit(analysis, "strongest_lag_periods") or "periods"
+        )
 
         parts = [
             f"Analyzed the relationship between {first.series.title} and {second.series.title} from {start_year} to {end_year}.",
@@ -280,11 +297,24 @@ class AnswerService:
 
     def write_cross_section(self, analysis: AnalysisResult, *, intent: QueryIntent) -> str:
         leader = analysis.series_results[0]
-        snapshot_basis = self._metric_value(analysis, "snapshot_basis") or "Latest available observation"
-        displayed_count = self._metric_value(analysis, "displayed_series_count")
-        resolved_count = self._metric_value(analysis, "resolved_series_count")
-        display_selection_basis = self._metric_value(analysis, "display_selection_basis")
-        rank_label = "highest" if intent.sort_descending else "lowest"
+        summary = analysis.cross_section_summary
+        snapshot_basis = (
+            summary.snapshot_basis
+            if summary is not None
+            else self._metric_value(analysis, "snapshot_basis") or "Latest available observation"
+        )
+        displayed_count = (
+            summary.displayed_series_count if summary is not None else self._metric_value(analysis, "displayed_series_count")
+        )
+        resolved_count = (
+            summary.resolved_series_count if summary is not None else self._metric_value(analysis, "resolved_series_count")
+        )
+        display_selection_basis = (
+            summary.display_selection_basis
+            if summary is not None
+            else self._metric_value(analysis, "display_selection_basis")
+        )
+        rank_label = summary.rank_order if summary is not None else ("highest" if intent.sort_descending else "lowest")
 
         if int(resolved_count or len(analysis.series_results)) == 1:
             parts = [

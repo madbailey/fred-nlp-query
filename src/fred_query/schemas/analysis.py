@@ -23,6 +23,7 @@ class DerivedMetric(BaseModel):
     name: str
     value: float | int | str
     unit: str | None = None
+    label: str | None = None
     description: str | None = None
 
 
@@ -38,6 +39,41 @@ class HistoricalSeriesContext(BaseModel):
     min_date: date | None = None
     max_value: float | None = None
     max_date: date | None = None
+
+
+class FollowUpSuggestion(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    kind: str
+    query: str
+    label: str | None = None
+
+
+class RelationshipSummary(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    analysis_basis: str | None = None
+    common_frequency: str | None = None
+    overlap_observations: int | None = None
+    same_period_correlation: float | None = None
+    regression_slope: float | None = None
+    strongest_lag_periods: int | None = None
+    strongest_lag_unit: str | None = None
+    strongest_lag_correlation: float | None = None
+    strongest_lag_observations: int | None = None
+
+
+class CrossSectionSummary(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    snapshot_basis: str
+    resolved_series_count: int
+    displayed_series_count: int
+    display_selection_basis: str
+    rank_order: str
+    leader_label: str
+    leader_value: float | None = None
+    leader_unit: str | None = None
 
 
 class SeriesAnalysis(BaseModel):
@@ -60,6 +96,8 @@ class AnalysisResult(BaseModel):
 
     series_results: list[SeriesAnalysis] = Field(default_factory=list)
     derived_metrics: list[DerivedMetric] = Field(default_factory=list)
+    relationship_summary: RelationshipSummary | None = None
+    cross_section_summary: CrossSectionSummary | None = None
     warnings: list[str] = Field(default_factory=list)
     latest_observation_date: date | None = None
     coverage_start: date | None = None

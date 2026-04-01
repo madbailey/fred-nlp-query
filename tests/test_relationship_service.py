@@ -101,6 +101,8 @@ class RelationshipAnalysisServiceTest(unittest.TestCase):
         metric_names = {metric.name for metric in response.analysis.derived_metrics}
         self.assertIn("same_period_correlation", metric_names)
         self.assertIn("strongest_lag_periods", metric_names)
+        self.assertIsNotNone(response.analysis.relationship_summary)
+        self.assertEqual(response.analysis.relationship_summary.common_frequency, "Monthly")
         self.assertIn("association estimate", response.answer_text.lower())
         self.assertIn("DCOILBRENTEU", response.answer_text)
         self.assertEqual(client.requests[0], ("DCOILBRENTEU", "m", "avg"))

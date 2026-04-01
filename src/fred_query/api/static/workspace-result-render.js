@@ -187,10 +187,27 @@ export function createResultRenderer(elements) {
         return value;
     }
 
-    function buildClarificationBadges(item) {
+    function buildClarificationOption(item) {
+        const typedOption = item?.clarification_option;
+        if (typedOption) {
+            return {
+                label: typedOption.label || item.title,
+                title: typedOption.title || item.title,
+                hint: typedOption.hint || item.selection_hint || "",
+                badges: Array.isArray(typedOption.badges)
+                    ? typedOption.badges.map((badge) => badge?.label).filter(Boolean)
+                    : [],
+            };
+        }
+
         const explicitBadges = Array.isArray(item.selection_badges) ? item.selection_badges.filter(Boolean) : [];
         if (explicitBadges.length > 0) {
-            return explicitBadges;
+            return {
+                label: item.selection_label || item.title,
+                title: item.title,
+                hint: item.selection_hint || "",
+                badges: explicitBadges,
+            };
         }
 
         const badges = [];
@@ -205,7 +222,12 @@ export function createResultRenderer(elements) {
         if (item.seasonal_adjustment) {
             badges.push(item.seasonal_adjustment);
         }
-        return badges.slice(0, 3);
+        return {
+            label: item.selection_label || item.title,
+            title: item.title,
+            hint: item.selection_hint || "",
+            badges: badges.slice(0, 3),
+        };
     }
 
     function renderIntent(intent) {
@@ -252,16 +274,23 @@ export function createResultRenderer(elements) {
         }
 
         followUpList.innerHTML = suggestions
-            .map((query) => `
+            .map((suggestion) => {
+                const query = typeof suggestion === "string" ? suggestion : suggestion?.query;
+                const label = typeof suggestion === "string" ? suggestion : (suggestion?.label || query);
+                if (!query) {
+                    return "";
+                }
+                return `
                 <button
                     type="button"
                     class="follow-up-suggestion"
                     data-query="${escapeHtml(query)}"
-                    title="${escapeHtml(query)}"
+                    title="${escapeHtml(label || query)}"
                 >
-                    ${escapeHtml(query)}
+                    ${escapeHtml(label || query)}
                 </button>
-            `)
+            `;
+            })
             .join("");
         setHidden(followUpPanel, false);
     }
@@ -276,9 +305,10 @@ export function createResultRenderer(elements) {
         metricsGrid.innerHTML = metrics
             .map((metric) => {
                 const unit = metric.unit ? ` ${escapeHtml(metric.unit)}` : "";
+                const label = metric.label || humanize(metric.name);
                 return `
                     <article class="metric-card">
-                        <p class="metric-card-label">${escapeHtml(humanize(metric.name))}</p>
+                        <p class="metric-card-label">${escapeHtml(label)}</p>
                         <p class="metric-card-value">${escapeHtml(formatValue(metric.value))}${unit}</p>
                         ${metric.description ? `<p class="metric-card-description">${escapeHtml(metric.description)}</p>` : ""}
                     </article>
@@ -507,9 +537,10 @@ export function createResultRenderer(elements) {
         clarificationQuestion.textContent = revision.response.answer_text || "Pick the series you meant.";
         clarificationOptions.innerHTML = candidates
             .map((item) => {
-                const badges = buildClarificationBadges(item);
-                const label = item.selection_label || item.title;
-                const showOfficialTitle = Boolean(item.selection_label && item.selection_label !== item.title);
+                const option = buildClarificationOption(item);
+                const badges = option.badges;
+                const label = option.label || item.title;
+                const showOfficialTitle = Boolean(option.title && label && label !== option.title);
                 return `
                     <button
                         type="button"
@@ -520,13 +551,13 @@ export function createResultRenderer(elements) {
                             <span class="clarification-option-label">${escapeHtml(label)}</span>
                             <span class="clarification-option-series-id">FRED: ${escapeHtml(item.series_id)}</span>
                         </div>
-                        ${showOfficialTitle ? `<span class="clarification-option-title">${escapeHtml(item.title)}</span>` : ""}
+                        ${showOfficialTitle ? `<span class="clarification-option-title">${escapeHtml(option.title)}</span>` : ""}
                         ${badges.length ? `
                             <div class="clarification-option-badges">
                                 ${badges.map((badge) => `<span class="clarification-option-badge">${escapeHtml(badge)}</span>`).join("")}
                             </div>
                         ` : ""}
-                        ${item.selection_hint ? `<span class="clarification-option-hint">${escapeHtml(item.selection_hint)}</span>` : ""}
+                        ${option.hint ? `<span class="clarification-option-hint">${escapeHtml(option.hint)}</span>` : ""}
                     </button>
                 `;
             })
