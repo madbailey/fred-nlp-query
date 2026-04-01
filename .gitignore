@@ -12,3 +12,4 @@ disttmp/
 build/
 *.egg-info/
 .venv/
+.claude/
