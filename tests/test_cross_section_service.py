@@ -120,6 +120,8 @@ class CrossSectionServiceTest(unittest.TestCase):
         )
         self.assertEqual(response.chart.series[0].x_categories, ["Nevada", "California"])
         self.assertEqual(response.chart.series[0].y, [6.5, 5.0])
+        self.assertIsNotNone(response.analysis.cross_section_summary)
+        self.assertEqual(response.analysis.cross_section_summary.leader_label, "Nevada")
         self.assertIn("Nevada ranks highest", response.answer_text)
         observation_requests = [item for item in requests if item.get("series_id") in {"CAUR", "TXUR", "NVUR"} and item.get("sort_order") == "desc"]
         self.assertEqual(len(observation_requests), 3)
@@ -163,6 +165,7 @@ class CrossSectionServiceTest(unittest.TestCase):
         self.assertEqual(len(response.analysis.series_results), 10)
         self.assertEqual(response.intent.rank_limit, 10)
         self.assertEqual(response.analysis.series_results[0].series.geography, "Nevada")
+        self.assertEqual(response.analysis.cross_section_summary.display_selection_basis, "comparison_context")
         self.assertEqual(response.chart.series[0].x_categories[0], "Nevada")
         self.assertIn("comparison context around the leader", response.answer_text)
         self.assertIn("Showing 10 of 12 series for comparison context.", response.chart.subtitle or "")
@@ -185,6 +188,7 @@ class CrossSectionServiceTest(unittest.TestCase):
         self.assertEqual(response.chart.series[0].x_categories, ["CPIAUCSL"])
         self.assertEqual(response.chart.series[0].y, [300.54])
         self.assertEqual(response.analysis.series_results[0].latest_observation_date, date(2023, 1, 1))
+        self.assertEqual(response.analysis.cross_section_summary.resolved_series_count, 1)
         self.assertIn("2023-01-01", response.answer_text)
 
 

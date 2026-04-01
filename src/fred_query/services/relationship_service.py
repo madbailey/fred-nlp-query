@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from fred_query.schemas.analysis import AnalysisResult, DerivedMetric, QueryIntent, QueryResponse, SeriesAnalysis
+from fred_query.schemas.analysis import (
+    AnalysisResult,
+    DerivedMetric,
+    QueryIntent,
+    QueryResponse,
+    RelationshipSummary,
+    SeriesAnalysis,
+)
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata
 from fred_query.services.answer_service import AnswerService
 from fred_query.services.chart_service import ChartService
@@ -220,16 +227,19 @@ class RelationshipAnalysisService:
         derived_metrics = [
             DerivedMetric(
                 name="analysis_basis",
+                label="Analysis basis",
                 value=basis_summary,
                 description="Transformation used to make the pairwise comparison more stable and interpretable.",
             ),
             DerivedMetric(
                 name="common_frequency",
+                label="Common frequency",
                 value=frequency_label,
                 description="Frequency used to align the two series before estimating the relationship.",
             ),
             DerivedMetric(
                 name="overlap_observations",
+                label="Overlap observations",
                 value=len(aligned_first),
                 unit="observations",
                 description="Number of aligned observations used in the same-period relationship estimate.",
@@ -240,6 +250,7 @@ class RelationshipAnalysisService:
             derived_metrics.append(
                 DerivedMetric(
                     name="same_period_correlation",
+                    label="Same-period correlation",
                     value=round(same_period_correlation, 4),
                     description="Pearson correlation on the aligned analysis basis in the same period.",
                 )
@@ -249,6 +260,7 @@ class RelationshipAnalysisService:
             derived_metrics.append(
                 DerivedMetric(
                     name="regression_slope",
+                    label="Regression slope",
                     value=round(regression_slope, 4),
                     description=(
                         f"Simple linear slope of {resolved_series[1].series_id} on {resolved_series[0].series_id} "
@@ -262,6 +274,7 @@ class RelationshipAnalysisService:
                 [
                     DerivedMetric(
                         name="strongest_lag_periods",
+                        label="Strongest lag",
                         value=best_lag,
                         unit=lag_unit,
                         description=self._lag_description(
@@ -273,6 +286,7 @@ class RelationshipAnalysisService:
                     ),
                     DerivedMetric(
                         name="strongest_lag_correlation",
+                        label="Strongest lag correlation",
                         value=round(best_lag_correlation, 4),
                         description=(
                             f"Absolute strongest correlation in the tested lead-lag window using {best_lag_samples} "
@@ -285,6 +299,21 @@ class RelationshipAnalysisService:
         analysis = AnalysisResult(
             series_results=series_results,
             derived_metrics=derived_metrics,
+            relationship_summary=RelationshipSummary(
+                analysis_basis=basis_summary,
+                common_frequency=frequency_label,
+                overlap_observations=len(aligned_first),
+                same_period_correlation=round(same_period_correlation, 4)
+                if same_period_correlation is not None
+                else None,
+                regression_slope=round(regression_slope, 4) if regression_slope is not None else None,
+                strongest_lag_periods=best_lag,
+                strongest_lag_unit=lag_unit if best_lag is not None else None,
+                strongest_lag_correlation=round(best_lag_correlation, 4)
+                if best_lag_correlation is not None
+                else None,
+                strongest_lag_observations=best_lag_samples,
+            ),
             warnings=warnings,
             latest_observation_date=max(latest_dates),
             coverage_start=aligned_first[0].date,

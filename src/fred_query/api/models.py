@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from fred_query.api.follow_up_suggestions import build_follow_up_suggestions
-from fred_query.schemas.analysis import QueryResponse, RoutedQueryResponse, RoutedQueryStatus
+from fred_query.schemas.analysis import FollowUpSuggestion, QueryResponse, RoutedQueryResponse, RoutedQueryStatus
 from fred_query.schemas.intent import QueryIntent
 from fred_query.schemas.resolved_series import SeriesSearchMatch
 
@@ -101,7 +101,7 @@ class ApiQueryResponse(BaseModel):
     answer_text: str
     result: QueryResponse
     plotly_figure: dict[str, Any]
-    follow_up_suggestions: list[str] = Field(default_factory=list)
+    follow_up_suggestions: list[FollowUpSuggestion] = Field(default_factory=list)
 
     @classmethod
     def from_query_response(cls, response: QueryResponse) -> "ApiQueryResponse":
@@ -124,7 +124,7 @@ class ApiRoutedQueryResponse(BaseModel):
     candidate_series: list[SeriesSearchMatch] = Field(default_factory=list)
     result: QueryResponse | None = None
     plotly_figure: dict[str, Any] | None = None
-    follow_up_suggestions: list[str] = Field(default_factory=list)
+    follow_up_suggestions: list[FollowUpSuggestion] = Field(default_factory=list)
 
     @classmethod
     def from_routed_response(

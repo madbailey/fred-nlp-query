@@ -512,6 +512,8 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         )
         self.assertIn("Pick this if you want CPI", response.candidate_series[0].selection_hint or "")
         self.assertIn("Pick this if you want PCE", response.candidate_series[1].selection_hint or "")
+        self.assertEqual(response.candidate_series[0].clarification_option.label, "Headline CPI")
+        self.assertEqual(response.candidate_series[1].clarification_option.label, "Headline PCE")
 
     def test_clarification_candidates_fall_back_to_ranked_matches_when_example_scores_are_weak(self) -> None:
         intent = QueryIntent(
@@ -570,6 +572,10 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         )
         self.assertEqual(
             [candidate.selection_label for candidate in response.candidate_series],
+            ["Headline CPI", "Headline PCE", "Trimmed Mean PCE"],
+        )
+        self.assertEqual(
+            [candidate.clarification_option.label for candidate in response.candidate_series],
             ["Headline CPI", "Headline PCE", "Trimmed Mean PCE"],
         )
         self.assertEqual(

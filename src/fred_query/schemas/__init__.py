@@ -1,9 +1,12 @@
 from fred_query.schemas.analysis import (
     AnalysisResult,
+    CrossSectionSummary,
     DerivedMetric,
+    FollowUpSuggestion,
     HistoricalSeriesContext,
     ObservationPoint,
     QueryResponse,
+    RelationshipSummary,
     RoutedQueryResponse,
     RoutedQueryStatus,
     SeriesAnalysis,
@@ -18,7 +21,13 @@ from fred_query.schemas.intent import (
     TaskType,
     TransformType,
 )
-from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata, SeriesSearchMatch
+from fred_query.schemas.resolved_series import (
+    ClarificationBadge,
+    ClarificationOption,
+    ResolvedSeries,
+    SeriesMetadata,
+    SeriesSearchMatch,
+)
 
 __all__ = [
     "AnalysisResult",
@@ -27,8 +36,10 @@ __all__ = [
     "ChartTrace",
     "ComparisonMode",
     "CrossSectionScope",
+    "CrossSectionSummary",
     "DateSpanAnnotation",
     "DerivedMetric",
+    "FollowUpSuggestion",
     "Geography",
     "GeographyType",
     "HistoricalSeriesContext",
@@ -36,10 +47,13 @@ __all__ = [
     "ObservationPoint",
     "QueryIntent",
     "QueryResponse",
+    "RelationshipSummary",
     "ResolvedSeries",
     "RoutedQueryResponse",
     "RoutedQueryStatus",
     "SeriesAnalysis",
+    "ClarificationBadge",
+    "ClarificationOption",
     "SeriesMetadata",
     "SeriesSearchMatch",
     "TaskType",

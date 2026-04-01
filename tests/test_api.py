@@ -7,9 +7,11 @@ from fastapi.testclient import TestClient
 
 from fred_query.api.app import (
     app,
+    get_app_settings,
     get_natural_language_query_service,
     get_state_gdp_comparison_service,
 )
+from fred_query.config import Settings
 from fred_query.errors import ConfigurationError
 from fred_query.schemas.analysis import (
     AnalysisResult,
@@ -20,7 +22,7 @@ from fred_query.schemas.analysis import (
 )
 from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace
 from fred_query.schemas.intent import ComparisonMode, Geography, GeographyType, QueryIntent, TaskType, TransformType
-from fred_query.schemas.resolved_series import ResolvedSeries, SeriesSearchMatch
+from fred_query.schemas.resolved_series import ClarificationBadge, ClarificationOption, ResolvedSeries, SeriesSearchMatch
 from fred_query.services import FREDAPIError, QuerySession
 
 
@@ -141,6 +143,10 @@ class _FailingStateGDPComparisonService:
 class APITest(unittest.TestCase):
     def setUp(self) -> None:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_app_settings] = lambda: Settings(
+            fred_api_key="test-fred-key",
+            openai_api_key="test-openai-key",
+        )
         self.client = TestClient(app)
 
     def tearDown(self) -> None:
@@ -189,8 +195,9 @@ class APITest(unittest.TestCase):
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
         self.assertIn(
             "Show Real GDP: California and Real GDP: Texas in reported GDP levels instead",
-            payload["follow_up_suggestions"],
+            [item["query"] for item in payload["follow_up_suggestions"]],
         )
+        self.assertEqual(payload["follow_up_suggestions"][0]["kind"], "toggle_normalization")
 
     def test_ask_forwards_selected_series_id(self) -> None:
         routed = RoutedQueryResponse(
@@ -243,6 +250,15 @@ class APITest(unittest.TestCase):
                 SeriesSearchMatch(
                     series_id="CPIAUCSL",
                     title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                    clarification_option=ClarificationOption(
+                        label="Headline CPI",
+                        title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                        hint="Pick this if you want CPI, the broad consumer inflation measure most people mean by 'inflation'.",
+                        badges=[
+                            ClarificationBadge(kind="frequency", label="Monthly"),
+                            ClarificationBadge(kind="units", label="Index level"),
+                        ],
+                    ),
                     selection_label="Headline CPI",
                     selection_hint="Pick this if you want CPI, the broad consumer inflation measure most people mean by 'inflation'.",
                     selection_badges=["Monthly", "Index level"],
@@ -261,6 +277,11 @@ class APITest(unittest.TestCase):
         self.assertEqual(payload["candidate_series"][0]["series_id"], "CPIAUCSL")
         self.assertEqual(payload["candidate_series"][0]["selection_label"], "Headline CPI")
         self.assertIn("Pick this if you want CPI", payload["candidate_series"][0]["selection_hint"])
+        self.assertEqual(payload["candidate_series"][0]["clarification_option"]["label"], "Headline CPI")
+        self.assertEqual(
+            [item["label"] for item in payload["candidate_series"][0]["clarification_option"]["badges"]],
+            ["Monthly", "Index level"],
+        )
 
     def test_ask_reuses_session_id_for_follow_up(self) -> None:
         routed = RoutedQueryResponse(
@@ -345,7 +366,7 @@ class APITest(unittest.TestCase):
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
         self.assertIn(
             "Show Real GDP: California and Real GDP: Texas in reported GDP levels instead",
-            payload["follow_up_suggestions"],
+            [item["query"] for item in payload["follow_up_suggestions"]],
         )
 
     def test_ask_blank_query_returns_validation_error(self) -> None:

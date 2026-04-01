@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fred_query.schemas.analysis import QueryResponse, SeriesAnalysis
+from fred_query.schemas.analysis import FollowUpSuggestion, QueryResponse, SeriesAnalysis
 from fred_query.schemas.intent import CrossSectionScope, QueryIntent, TaskType, TransformType
 
 _MAX_SUGGESTIONS = 3
@@ -51,48 +51,60 @@ _SUBJECT_CANDIDATES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
-def build_follow_up_suggestions(response: QueryResponse) -> list[str]:
-    prompts: list[str] = []
+def build_follow_up_suggestions(response: QueryResponse) -> list[FollowUpSuggestion]:
+    prompts: list[FollowUpSuggestion] = []
     intent = response.intent
 
     if intent.task_type == TaskType.SINGLE_SERIES_LOOKUP:
-        _append_prompt(prompts, _single_series_compare_prompt(response))
-        _append_prompt(prompts, _single_series_transform_prompt(response))
-        _append_prompt(prompts, _single_series_peak_prompt(response))
-        _append_prompt(prompts, _extend_prompt(intent, response.analysis.coverage_start))
-        _append_prompt(prompts, _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end))
-        _append_prompt(prompts, _latest_prompt(intent, task_type=intent.task_type))
+        _append_prompt(prompts, "compare_alternative_subject", _single_series_compare_prompt(response))
+        _append_prompt(prompts, "toggle_transform", _single_series_transform_prompt(response))
+        _append_prompt(prompts, "historical_peak", _single_series_peak_prompt(response))
+        _append_prompt(prompts, "extend_range", _extend_prompt(intent, response.analysis.coverage_start))
+        _append_prompt(
+            prompts,
+            "recent_focus",
+            _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end),
+        )
+        _append_prompt(prompts, "latest_available", _latest_prompt(intent, task_type=intent.task_type))
         return prompts[:_MAX_SUGGESTIONS]
 
     if intent.task_type == TaskType.CROSS_SECTION:
-        _append_prompt(prompts, _cross_section_flip_prompt(intent, response))
-        _append_prompt(prompts, _cross_section_limit_prompt(intent, response))
-        _append_prompt(prompts, _cross_section_states_prompt(intent, response))
-        _append_prompt(prompts, _latest_prompt(intent, task_type=intent.task_type))
+        _append_prompt(prompts, "flip_ranking_direction", _cross_section_flip_prompt(intent, response))
+        _append_prompt(prompts, "change_ranking_limit", _cross_section_limit_prompt(intent, response))
+        _append_prompt(prompts, "expand_ranking_scope", _cross_section_states_prompt(intent, response))
+        _append_prompt(prompts, "latest_available", _latest_prompt(intent, task_type=intent.task_type))
         return prompts[:_MAX_SUGGESTIONS]
 
     if intent.task_type == TaskType.STATE_GDP_COMPARISON:
-        _append_prompt(prompts, _state_gdp_normalization_prompt(intent, response))
-        _append_prompt(prompts, _extend_prompt(intent, response.analysis.coverage_start))
-        _append_prompt(prompts, _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end))
-        _append_prompt(prompts, _latest_prompt(intent, task_type=intent.task_type))
+        _append_prompt(prompts, "toggle_normalization", _state_gdp_normalization_prompt(intent, response))
+        _append_prompt(prompts, "extend_range", _extend_prompt(intent, response.analysis.coverage_start))
+        _append_prompt(
+            prompts,
+            "recent_focus",
+            _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end),
+        )
+        _append_prompt(prompts, "latest_available", _latest_prompt(intent, task_type=intent.task_type))
         return prompts[:_MAX_SUGGESTIONS]
 
     if intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS):
-        _append_prompt(prompts, _comparison_swap_prompt(response))
-        _append_prompt(prompts, _comparison_transform_prompt(response))
-        _append_prompt(prompts, _extend_prompt(intent, response.analysis.coverage_start))
-        _append_prompt(prompts, _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end))
-        _append_prompt(prompts, _latest_prompt(intent, task_type=intent.task_type))
+        _append_prompt(prompts, "compare_alternative_subject", _comparison_swap_prompt(response))
+        _append_prompt(prompts, "toggle_transform", _comparison_transform_prompt(response))
+        _append_prompt(prompts, "extend_range", _extend_prompt(intent, response.analysis.coverage_start))
+        _append_prompt(
+            prompts,
+            "recent_focus",
+            _recent_focus_prompt(intent, response.analysis.coverage_start, response.analysis.coverage_end),
+        )
+        _append_prompt(prompts, "latest_available", _latest_prompt(intent, task_type=intent.task_type))
         return prompts[:_MAX_SUGGESTIONS]
 
     return []
 
 
-def _append_prompt(prompts: list[str], prompt: str | None) -> None:
+def _append_prompt(prompts: list[FollowUpSuggestion], kind: str, prompt: str | None) -> None:
     normalized = (prompt or "").strip()
-    if normalized and normalized not in prompts:
-        prompts.append(normalized)
+    if normalized and all(item.query != normalized for item in prompts):
+        prompts.append(FollowUpSuggestion(kind=kind, query=normalized, label=normalized))
 
 
 def _series_text(result: SeriesAnalysis) -> str:

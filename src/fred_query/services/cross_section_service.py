@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from datetime import date
 
-from fred_query.schemas.analysis import AnalysisResult, DerivedMetric, ObservationPoint, QueryResponse, SeriesAnalysis
+from fred_query.schemas.analysis import (
+    AnalysisResult,
+    CrossSectionSummary,
+    DerivedMetric,
+    ObservationPoint,
+    QueryResponse,
+    SeriesAnalysis,
+)
 from fred_query.schemas.intent import ComparisonMode, CrossSectionScope, GeographyType, QueryIntent
 from fred_query.schemas.resolved_series import ResolvedSeries
 from fred_query.services.answer_service import AnswerService
@@ -256,28 +263,33 @@ class CrossSectionService:
         derived_metrics = [
             DerivedMetric(
                 name="resolved_series_count",
+                label="Resolved series count",
                 value=len(ranked_results),
                 unit="series",
                 description="Series included in the ranked cross-section before any display cap was applied.",
             ),
             DerivedMetric(
                 name="displayed_series_count",
+                label="Displayed series count",
                 value=len(displayed_results),
                 unit="series",
                 description="Series shown in the ranked bar chart.",
             ),
             DerivedMetric(
                 name="display_selection_basis",
+                label="Display selection basis",
                 value=display_selection_basis,
                 description="Whether the displayed slice came from an explicit request, a contextual default, or the full result set.",
             ),
             DerivedMetric(
                 name="snapshot_basis",
+                label="Snapshot basis",
                 value=snapshot_basis,
                 description="Observation timing used for the cross-section snapshot.",
             ),
             DerivedMetric(
                 name="rank_leader",
+                label="Rank leader",
                 value=self._display_label(leader.series),
                 description=f"The geography or series with the {rank_label} observed value in the ranked snapshot.",
             ),
@@ -287,6 +299,7 @@ class CrossSectionService:
             derived_metrics.append(
                 DerivedMetric(
                     name="rank_leader_value",
+                    label="Rank leader value",
                     value=round(leader.latest_value, 4),
                     unit=leader.series.units,
                     description=f"The {rank_label} observed value in the ranked snapshot.",
@@ -297,6 +310,16 @@ class CrossSectionService:
         analysis = AnalysisResult(
             series_results=displayed_results,
             derived_metrics=derived_metrics,
+            cross_section_summary=CrossSectionSummary(
+                snapshot_basis=snapshot_basis,
+                resolved_series_count=len(ranked_results),
+                displayed_series_count=len(displayed_results),
+                display_selection_basis=display_selection_basis,
+                rank_order=rank_label,
+                leader_label=self._display_label(leader.series),
+                leader_value=round(leader.latest_value, 4) if leader.latest_value is not None else None,
+                leader_unit=leader.series.units if leader.latest_value is not None else None,
+            ),
             warnings=warnings,
             latest_observation_date=max(coverage_dates) if coverage_dates else None,
             coverage_start=min(coverage_dates) if coverage_dates else None,

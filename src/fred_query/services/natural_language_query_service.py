@@ -6,7 +6,7 @@ import re
 
 from fred_query.schemas.analysis import RoutedQueryResponse, RoutedQueryStatus
 from fred_query.schemas.intent import ComparisonMode, QueryIntent, TaskType, TransformType
-from fred_query.schemas.resolved_series import SeriesSearchMatch
+from fred_query.schemas.resolved_series import ClarificationBadge, ClarificationOption, SeriesSearchMatch
 from fred_query.services.comparison_service import StateGDPComparisonService
 from fred_query.services.cross_section_service import CrossSectionService
 from fred_query.services.fred_client import FREDClient
@@ -554,26 +554,26 @@ class NaturalLanguageQueryService:
         return None
 
     @classmethod
-    def _selection_badges_for_candidate(cls, candidate: SeriesSearchMatch) -> list[str]:
-        badges: list[str] = []
+    def _selection_badges_for_candidate(cls, candidate: SeriesSearchMatch) -> list[ClarificationBadge]:
+        badges: list[ClarificationBadge] = []
         frequency_label = cls._FREQUENCY_LABELS.get((candidate.frequency or "").upper())
         if frequency_label:
-            badges.append(frequency_label)
+            badges.append(ClarificationBadge(kind="frequency", label=frequency_label))
 
         units_text = cls._normalized_text(candidate.units)
         if "6-month annualized" in units_text:
-            badges.append("6M annualized")
+            badges.append(ClarificationBadge(kind="units", label="6M annualized"))
         elif "% chg. from yr. ago" in units_text or "percent change from year ago" in units_text:
-            badges.append("YoY rate")
+            badges.append(ClarificationBadge(kind="units", label="YoY rate"))
         elif "annual rate" in units_text or "annualized" in units_text:
-            badges.append("Annualized rate")
+            badges.append(ClarificationBadge(kind="units", label="Annualized rate"))
         elif "index" in units_text:
-            badges.append("Index level")
+            badges.append(ClarificationBadge(kind="units", label="Index level"))
         elif "percent" in units_text:
-            badges.append("Percent")
+            badges.append(ClarificationBadge(kind="units", label="Percent"))
 
         if candidate.seasonal_adjustment:
-            badges.append(candidate.seasonal_adjustment)
+            badges.append(ClarificationBadge(kind="seasonal_adjustment", label=candidate.seasonal_adjustment))
 
         return badges[:3]
 
@@ -587,12 +587,23 @@ class NaturalLanguageQueryService:
         return [
             candidate.model_copy(
                 update={
+                    "clarification_option": ClarificationOption(
+                        label=self._selection_label_for_candidate(candidate),
+                        title=candidate.title,
+                        hint=self._selection_hint_for_candidate(
+                            candidate,
+                            search_text=search_text,
+                        ),
+                        badges=self._selection_badges_for_candidate(candidate),
+                    ),
                     "selection_label": self._selection_label_for_candidate(candidate),
                     "selection_hint": self._selection_hint_for_candidate(
                         candidate,
                         search_text=search_text,
                     ),
-                    "selection_badges": self._selection_badges_for_candidate(candidate),
+                    "selection_badges": [
+                        badge.label for badge in self._selection_badges_for_candidate(candidate)
+                    ],
                 }
             )
             for candidate in candidates
