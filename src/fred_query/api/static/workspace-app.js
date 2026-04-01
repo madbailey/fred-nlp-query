@@ -475,5 +475,7 @@ export function mountWorkspaceApp() {
         renderApp();
     });
 
+    window.addEventListener("themechange", () => renderApp());
+
     renderApp();
 }

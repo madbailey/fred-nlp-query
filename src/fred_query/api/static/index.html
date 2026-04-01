@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Space+Grotesk:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap"
         rel="stylesheet"
     >
     <link rel="stylesheet" href="/static/styles.css">
@@ -20,6 +20,7 @@
 </head>
 <body>
     <main class="app-shell">
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">&#9684;</button>
         <section id="entry-view" class="entry-view">
             <div class="entry-inner">
                 <header class="hero">
@@ -86,23 +87,6 @@
                     </section>
 
                     <section id="results" class="result-canvas hidden">
-                        <article class="panel answer-panel">
-                            <p id="answer-text" class="answer-text"></p>
-                            <div id="warning-list" class="warning-list"></div>
-                            <details id="intent-details" class="intent-details">
-                                <summary class="intent-toggle">Query details</summary>
-                                <dl id="intent-summary" class="intent-summary"></dl>
-                            </details>
-                        </article>
-
-                        <article id="follow-up-panel" class="panel follow-up-panel hidden">
-                            <div class="panel-heading">
-                                <h2>Try next</h2>
-                            </div>
-                            <p class="follow-up-copy">Suggested follow-up prompts generated from this result.</p>
-                            <div id="follow-up-list" class="follow-up-list"></div>
-                        </article>
-
                         <article id="chart-panel" class="panel chart-panel hidden">
                             <header class="chart-header">
                                 <h2 id="chart-title" class="chart-title"></h2>
@@ -119,11 +103,28 @@
                             <div id="metrics-grid" class="metrics-grid"></div>
                         </article>
 
+                        <article class="panel answer-panel">
+                            <p id="answer-text" class="answer-text"></p>
+                            <div id="warning-list" class="warning-list"></div>
+                            <details id="intent-details" class="intent-details">
+                                <summary class="intent-toggle">Query details</summary>
+                                <dl id="intent-summary" class="intent-summary"></dl>
+                            </details>
+                        </article>
+
                         <article id="series-panel" class="panel hidden">
                             <div class="panel-heading">
                                 <h2>Series detail</h2>
                             </div>
                             <div id="series-grid" class="series-grid"></div>
+                        </article>
+
+                        <article id="follow-up-panel" class="panel follow-up-panel hidden">
+                            <div class="panel-heading">
+                                <h2>Try next</h2>
+                            </div>
+                            <p class="follow-up-copy">Suggested follow-up prompts generated from this result.</p>
+                            <div id="follow-up-list" class="follow-up-list"></div>
                         </article>
                     </section>
                 </div>

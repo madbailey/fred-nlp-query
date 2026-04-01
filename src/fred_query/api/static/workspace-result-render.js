@@ -318,15 +318,36 @@ export function createResultRenderer(elements) {
         setHidden(metricsPanel, false);
     }
 
+    function getThemeColors() {
+        const style = getComputedStyle(document.documentElement);
+        return {
+            textPrimary: style.getPropertyValue("--text-primary").trim(),
+            textSecondary: style.getPropertyValue("--text-secondary").trim(),
+            textDisplay: style.getPropertyValue("--text-display").trim(),
+            textDisabled: style.getPropertyValue("--text-disabled").trim(),
+            border: style.getPropertyValue("--border").trim(),
+            borderVisible: style.getPropertyValue("--border-visible").trim(),
+            surface: style.getPropertyValue("--surface").trim(),
+            black: style.getPropertyValue("--black").trim(),
+        };
+    }
+
     function renderChart(figure, response) {
         if (!figure || !window.Plotly) {
             setHidden(chartPanel, true);
             return;
         }
 
+        const theme = getThemeColors();
         const chartTitleText = extractChartTitle(response, figure);
         const chartSubtitleText = extractChartSubtitle(response, figure);
-        const data = (figure.data || []).map((trace) => ({ ...trace }));
+        const data = (figure.data || []).map((trace) => ({
+            ...trace,
+            line: trace.type === "scatter" || !trace.type ? {
+                ...trace.line,
+                width: trace.line?.width || 2,
+            } : trace.line,
+        }));
         const spanYears = getTimeSeriesSpanYears(data);
         const showRangeControls = spanYears >= 4;
         const showLegend = data.length > 1;
@@ -347,45 +368,48 @@ export function createResultRenderer(elements) {
                 l: 64,
                 r: 18,
                 t: 20,
-                b: showRangeControls ? 118 : (showLegend ? 86 : 56),
+                b: showRangeControls && showLegend ? 150 : showRangeControls ? 118 : (showLegend ? 86 : 56),
             },
             font: {
-                family: '"IBM Plex Sans", "Segoe UI", sans-serif',
-                color: "#15212f",
+                family: '"Space Grotesk", "DM Sans", system-ui, sans-serif',
+                color: theme.textPrimary,
             },
             showlegend: showLegend,
             hoverlabel: {
-                bgcolor: "#ffffff",
-                bordercolor: "rgba(21, 33, 47, 0.16)",
+                bgcolor: theme.surface,
+                bordercolor: theme.borderVisible,
                 font: {
-                    family: '"IBM Plex Sans", "Segoe UI", sans-serif',
-                    color: "#15212f",
+                    family: '"Space Mono", monospace',
+                    color: theme.textPrimary,
                 },
                 namelength: 56,
             },
             legend: showLegend ? {
                 orientation: "h",
                 yanchor: "top",
-                y: -0.2,
+                y: showRangeControls ? -0.35 : -0.2,
                 xanchor: "left",
                 x: 0,
                 font: {
-                    size: 12,
-                    color: "#435365",
+                    family: '"Space Mono", monospace',
+                    size: 11,
+                    color: theme.textSecondary,
                 },
             } : undefined,
             annotations: removeSubtitleAnnotation(figure.layout?.annotations, chartSubtitleText),
             xaxis: {
                 ...figure.layout?.xaxis,
-                gridcolor: "rgba(21, 33, 47, 0.08)",
+                gridcolor: theme.border,
                 zeroline: false,
                 automargin: true,
                 showspikes: true,
                 spikemode: "across",
-                spikecolor: "rgba(21, 33, 47, 0.16)",
+                spikecolor: theme.borderVisible,
                 spikethickness: 1,
                 tickfont: {
-                    color: "#435365",
+                    family: '"Space Mono", monospace',
+                    size: 11,
+                    color: theme.textSecondary,
                 },
                 tickformatstops: showRangeControls ? [
                     { dtickrange: [null, 86400000 * 31], value: "%b %Y" },
@@ -397,26 +421,33 @@ export function createResultRenderer(elements) {
                     y: 1.14,
                     xanchor: "left",
                     yanchor: "bottom",
-                    bgcolor: "rgba(255, 255, 255, 0.94)",
-                    activecolor: "rgba(13, 115, 119, 0.14)",
-                    bordercolor: "rgba(21, 33, 47, 0.1)",
+                    bgcolor: theme.surface,
+                    activecolor: theme.borderVisible,
+                    bordercolor: theme.border,
                     borderwidth: 1,
+                    font: {
+                        family: '"Space Mono", monospace',
+                        size: 11,
+                        color: theme.textSecondary,
+                    },
                     buttons: buildRangeSelectorButtons(spanYears),
                 } : undefined,
                 rangeslider: showRangeControls ? {
                     visible: true,
-                    bgcolor: "rgba(21, 33, 47, 0.04)",
-                    bordercolor: "rgba(21, 33, 47, 0.1)",
+                    bgcolor: theme.black,
+                    bordercolor: theme.border,
                     thickness: 0.1,
                 } : { visible: false },
             },
             yaxis: {
                 ...figure.layout?.yaxis,
-                gridcolor: "rgba(21, 33, 47, 0.08)",
+                gridcolor: theme.border,
                 zeroline: false,
                 automargin: true,
                 tickfont: {
-                    color: "#435365",
+                    family: '"Space Mono", monospace',
+                    size: 11,
+                    color: theme.textSecondary,
                 },
             },
         };
