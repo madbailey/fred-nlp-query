@@ -34,6 +34,9 @@ class RelationshipAnalysisService:
         self.fred_client = fred_client
         self.resolver_service = resolver_service or ResolverService(fred_client)
         self.transform_service = transform_service or TransformService()
+        self.transform_planning_service = self.transform_service.planning_service
+        self.series_transform_service = self.transform_service.series_transform_service
+        self.relationship_transform_service = self.transform_service.relationship_transform_service
         self.chart_service = chart_service or ChartService()
         self.answer_service = answer_service or AnswerService()
 
@@ -105,7 +108,7 @@ class RelationshipAnalysisService:
             ]
 
         frequency_code, frequency_label, periods_per_year, lag_unit = (
-            self.transform_service.choose_relationship_frequency(
+            self.relationship_transform_service.choose_relationship_frequency(
                 [metadata.frequency for metadata in metadata_items]
             )
         )
@@ -115,17 +118,17 @@ class RelationshipAnalysisService:
         effective_transform = (
             TransformType.LEVEL if intent.transform == TransformType.NORMALIZED_INDEX else intent.transform
         )
-        transform_window, transform_warnings = self.transform_service.resolve_transform_window(
+        transform_window, transform_warnings = self.transform_planning_service.resolve_transform_window(
             transform=effective_transform,
             frequency=metadata_items[0].frequency,
             requested_window=intent.transform_window,
         )
-        warmup_periods = self.transform_service.transform_warmup_periods(
+        warmup_periods = self.transform_planning_service.transform_warmup_periods(
             transform=effective_transform,
             periods_per_year=periods_per_year,
             window=transform_window,
         )
-        fetch_start_date = self.transform_service.subtract_periods(
+        fetch_start_date = self.transform_planning_service.subtract_periods(
             start_date,
             periods=warmup_periods,
             frequency=frequency_code,
@@ -146,7 +149,7 @@ class RelationshipAnalysisService:
                 aggregation_method="avg",
             )
 
-            visible_observations = self.transform_service.filter_observations_by_date(
+            visible_observations = self.series_transform_service.filter_observations_by_date(
                 observations,
                 start_date=start_date,
                 end_date=end_date,
@@ -156,7 +159,7 @@ class RelationshipAnalysisService:
 
             basis_source_observations = observations if warmup_periods > 0 else visible_observations
             transformed, basis, units, applied_window, basis_warnings = (
-                self.transform_service.build_relationship_basis(
+                self.relationship_transform_service.build_relationship_basis(
                     basis_source_observations,
                     title=metadata.title,
                     units=metadata.units,
@@ -172,7 +175,7 @@ class RelationshipAnalysisService:
                     f"I could not derive a stable comparison basis for {metadata.series_id} over the requested date range."
                 )
 
-            transformed = self.transform_service.filter_observations_by_date(
+            transformed = self.series_transform_service.filter_observations_by_date(
                 transformed,
                 start_date=start_date,
                 end_date=end_date,
@@ -190,7 +193,7 @@ class RelationshipAnalysisService:
                 applied_transform_window = applied_window
             warnings.extend(basis_warnings)
 
-        aligned_first, aligned_second = self.transform_service.align_on_dates(
+        aligned_first, aligned_second = self.relationship_transform_service.align_on_dates(
             transformed_observations[0],
             transformed_observations[1],
         )
@@ -199,12 +202,20 @@ class RelationshipAnalysisService:
                 "The two series do not have enough overlapping observations after alignment to estimate a relationship safely."
             )
 
-        same_period_correlation = self.transform_service.calculate_correlation(aligned_first, aligned_second)
-        regression_slope = self.transform_service.calculate_regression_slope(aligned_first, aligned_second)
-        best_lag, best_lag_correlation, best_lag_samples = self.transform_service.calculate_best_lag_correlation(
+        same_period_correlation = self.relationship_transform_service.calculate_correlation(
             aligned_first,
             aligned_second,
-            max_lag=self.transform_service.relationship_max_lag(periods_per_year),
+        )
+        regression_slope = self.relationship_transform_service.calculate_regression_slope(
+            aligned_first,
+            aligned_second,
+        )
+        best_lag, best_lag_correlation, best_lag_samples = (
+            self.relationship_transform_service.calculate_best_lag_correlation(
+                aligned_first,
+                aligned_second,
+                max_lag=self.relationship_transform_service.relationship_max_lag(periods_per_year),
+            )
         )
 
         chart_series = [aligned_first, aligned_second]
@@ -217,8 +228,8 @@ class RelationshipAnalysisService:
         chart_basis = basis_summary
         if analysis_units[0] != analysis_units[1]:
             chart_series = [
-                self.transform_service.standardize(aligned_first),
-                self.transform_service.standardize(aligned_second),
+                self.relationship_transform_service.standardize(aligned_first),
+                self.relationship_transform_service.standardize(aligned_second),
             ]
             chart_units = "Standard deviations"
             chart_basis = "Standardized relationship basis"

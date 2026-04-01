@@ -15,6 +15,7 @@ from fred_query.services.chart_service import ChartService
 from fred_query.services.fred_client import FREDClient
 from fred_query.services.resolver_service import ResolverService
 from fred_query.schemas.intent import TransformType
+from fred_query.services.transform_service import TransformService
 from fred_query.services.vintage_analysis_service import VintageAnalysisService
 
 
@@ -36,6 +37,9 @@ class SingleSeriesLookupService:
         self.fred_client = fred_client
         self.resolver_service = resolver_service or ResolverService(fred_client)
         self.transform_service = transform_service or TransformService()
+        self.transform_planning_service = self.transform_service.planning_service
+        self.series_transform_service = self.transform_service.series_transform_service
+        self.series_statistics_service = self.transform_service.series_statistics_service
         self.chart_service = chart_service or ChartService()
         self.answer_service = answer_service or AnswerService()
         self.vintage_analysis_service = vintage_analysis_service or VintageAnalysisService(fred_client)
@@ -142,18 +146,18 @@ class SingleSeriesLookupService:
         if not response_intent.indicators:
             response_intent.indicators = [resolved_series.indicator]
 
-        periods_per_year = self.transform_service.periods_per_year_for_frequency(metadata.frequency)
-        transform_window, transform_warnings = self.transform_service.resolve_transform_window(
+        periods_per_year = self.transform_planning_service.periods_per_year_for_frequency(metadata.frequency)
+        transform_window, transform_warnings = self.transform_planning_service.resolve_transform_window(
             transform=effective_transform,
             frequency=metadata.frequency,
             requested_window=intent.transform_window,
         )
-        warmup_periods = self.transform_service.transform_warmup_periods(
+        warmup_periods = self.transform_planning_service.transform_warmup_periods(
             transform=effective_transform,
             periods_per_year=periods_per_year,
             window=transform_window,
         )
-        fetch_start_date = self.transform_service.subtract_periods(
+        fetch_start_date = self.transform_planning_service.subtract_periods(
             start_date,
             periods=warmup_periods,
             frequency=metadata.frequency,
@@ -169,7 +173,7 @@ class SingleSeriesLookupService:
         warnings.extend(transform_warnings)
         historical_context = None
         historical_metrics: list[DerivedMetric] = []
-        visible_observations = self.transform_service.filter_observations_by_date(
+        visible_observations = self.series_transform_service.filter_observations_by_date(
             observations,
             start_date=start_date,
             end_date=end_date,
@@ -185,21 +189,21 @@ class SingleSeriesLookupService:
 
         if effective_transform == TransformType.LEVEL:
             normalized_observations = (
-                self.transform_service.normalize_to_index(visible_observations) if normalize_chart else None
+                self.series_transform_service.normalize_to_index(visible_observations) if normalize_chart else None
             )
-            latest_value, latest_date = self.transform_service.latest_value(visible_observations)
-            total_growth = self.transform_service.calculate_total_growth_pct(visible_observations)
+            latest_value, latest_date = self.series_statistics_service.latest_value(visible_observations)
+            total_growth = self.series_statistics_service.calculate_total_growth_pct(visible_observations)
             comparison_units = metadata.units
             compare_on_transformed_series = False
         else:
-            transform_result = self.transform_service.apply_single_series_transform(
+            transform_result = self.series_transform_service.apply_single_series_transform(
                 observations,
                 transform=effective_transform,
                 units=metadata.units,
                 frequency=metadata.frequency,
                 window=transform_window,
             )
-            transformed_observations = self.transform_service.filter_observations_by_date(
+            transformed_observations = self.series_transform_service.filter_observations_by_date(
                 transform_result.observations or [],
                 start_date=start_date,
                 end_date=end_date,
@@ -210,7 +214,7 @@ class SingleSeriesLookupService:
 
             analysis_basis = transform_result.basis
             analysis_units = transform_result.units
-            latest_value, latest_date = self.transform_service.latest_value(transformed_observations)
+            latest_value, latest_date = self.series_statistics_service.latest_value(transformed_observations)
             comparison_units = analysis_units
             compare_on_transformed_series = transform_result.compare_on_transformed_series
 
@@ -219,7 +223,7 @@ class SingleSeriesLookupService:
             historical_start = self._historical_start_date(start_date=start_date, latest_date=latest_date)
             historical_fetch_start = historical_start
             if compare_on_transformed_series:
-                historical_fetch_start = self.transform_service.subtract_periods(
+                historical_fetch_start = self.transform_planning_service.subtract_periods(
                     historical_start,
                     periods=warmup_periods,
                     frequency=metadata.frequency,
@@ -237,20 +241,20 @@ class SingleSeriesLookupService:
                         "Extended historical context was unavailable, so comparisons use only the requested range."
                     )
 
-        historical_series = self.transform_service.filter_observations_by_date(
+        historical_series = self.series_transform_service.filter_observations_by_date(
             historical_observations,
             start_date=historical_start if latest_date is not None else start_date,
             end_date=latest_date,
         )
         if compare_on_transformed_series:
-            transformed_history = self.transform_service.apply_single_series_transform(
+            transformed_history = self.series_transform_service.apply_single_series_transform(
                 historical_observations,
                 transform=effective_transform,
                 units=metadata.units,
                 frequency=metadata.frequency,
                 window=transform_window,
             )
-            history_basis = self.transform_service.filter_observations_by_date(
+            history_basis = self.series_transform_service.filter_observations_by_date(
                 transformed_history.observations or [],
                 start_date=historical_start if latest_date is not None else start_date,
                 end_date=latest_date,
@@ -263,7 +267,7 @@ class SingleSeriesLookupService:
                 )
                 historical_series = transformed_observations or visible_observations
 
-        historical_context = self.transform_service.summarize_historical_context(historical_series)
+        historical_context = self.series_statistics_service.summarize_historical_context(historical_series)
         historical_metrics = self._historical_metrics(
             units=comparison_units,
             context=historical_context,
@@ -276,7 +280,7 @@ class SingleSeriesLookupService:
                 start_date=visible_observations[0].date,
                 end_date=visible_observations[-1].date,
             )
-            recession_periods = self.transform_service.derive_recession_periods(recession_observations)
+            recession_periods = self.series_statistics_service.derive_recession_periods(recession_observations)
         except Exception:
             recession_periods = []
 
@@ -289,7 +293,7 @@ class SingleSeriesLookupService:
             analysis_units=analysis_units,
             total_growth_pct=total_growth,
             compound_annual_growth_rate_pct=(
-                self.transform_service.calculate_cagr_pct(visible_observations)
+                self.series_statistics_service.calculate_cagr_pct(visible_observations)
                 if effective_transform == TransformType.LEVEL
                 else None
             ),

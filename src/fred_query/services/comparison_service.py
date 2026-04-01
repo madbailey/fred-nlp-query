@@ -28,6 +28,8 @@ class StateGDPComparisonService:
         self.intent_service = intent_service or IntentService()
         self.resolver_service = resolver_service or ResolverService(fred_client)
         self.transform_service = transform_service or TransformService()
+        self.series_transform_service = self.transform_service.series_transform_service
+        self.series_statistics_service = self.transform_service.series_statistics_service
         self.chart_service = chart_service or ChartService()
         self.answer_service = answer_service or AnswerService()
 
@@ -69,11 +71,11 @@ class StateGDPComparisonService:
                 raise ValueError(f"No observations returned for {series.series_id}.")
 
             normalized_observations = (
-                self.transform_service.normalize_to_index(observations) if normalize else None
+                self.series_transform_service.normalize_to_index(observations) if normalize else None
             )
-            total_growth = self.transform_service.calculate_total_growth_pct(observations)
-            cagr = self.transform_service.calculate_cagr_pct(observations)
-            latest_value, latest_date = self.transform_service.latest_value(observations)
+            total_growth = self.series_statistics_service.calculate_total_growth_pct(observations)
+            cagr = self.series_statistics_service.calculate_cagr_pct(observations)
+            latest_value, latest_date = self.series_statistics_service.latest_value(observations)
 
             coverage_start = observations[0].date if coverage_start is None else min(coverage_start, observations[0].date)
             coverage_end = observations[-1].date if coverage_end is None else max(coverage_end, observations[-1].date)
@@ -101,7 +103,7 @@ class StateGDPComparisonService:
                 start_date=coverage_start,
                 end_date=coverage_end,
             )
-            recession_periods = self.transform_service.derive_recession_periods(recession_observations)
+            recession_periods = self.series_statistics_service.derive_recession_periods(recession_observations)
         except Exception as exc:  # pragma: no cover
             warnings.append(f"Unable to load recession shading series: {exc}")
 
