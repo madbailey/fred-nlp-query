@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import date
 import unittest
 
@@ -140,6 +141,23 @@ class _FailingStateGDPComparisonService:
         raise self.exc
 
 
+class _TrackingNaturalLanguageQueryService(_FakeNaturalLanguageQueryService):
+    def __init__(self, response: RoutedQueryResponse) -> None:
+        super().__init__(response)
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _TrackingStateGDPComparisonService(_FakeStateGDPComparisonService):
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class APITest(unittest.TestCase):
     def setUp(self) -> None:
         app.dependency_overrides.clear()
@@ -236,6 +254,52 @@ class APITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(service.last_call[:3], ("Compare oil and inflation", None, [None, "CPIAUCSL"]))
         self.assertIsNotNone(service.last_call[3])
+
+    def test_ask_supports_yield_based_dependency_override(self) -> None:
+        routed = RoutedQueryResponse(
+            status=RoutedQueryStatus.COMPLETED,
+            intent=_build_query_response().intent,
+            answer_text="Completed comparison.",
+            query_response=_build_query_response(),
+        )
+        service = _TrackingNaturalLanguageQueryService(routed)
+
+        def override() -> Iterator[_TrackingNaturalLanguageQueryService]:
+            try:
+                yield service
+            finally:
+                service.close()
+
+        app.dependency_overrides[get_natural_language_query_service] = override
+
+        response = self.client.post("/api/ask", json={"query": "Compare California and Texas GDP"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(service.closed)
+
+    def test_compare_state_gdp_supports_yield_based_dependency_override(self) -> None:
+        service = _TrackingStateGDPComparisonService()
+
+        def override() -> Iterator[_TrackingStateGDPComparisonService]:
+            try:
+                yield service
+            finally:
+                service.close()
+
+        app.dependency_overrides[get_state_gdp_comparison_service] = override
+
+        response = self.client.post(
+            "/api/compare/state-gdp",
+            json={
+                "state1": "California",
+                "state2": "Texas",
+                "start_date": "2019-01-01",
+                "normalize": True,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(service.closed)
 
     def test_ask_clarification(self) -> None:
         routed = RoutedQueryResponse(

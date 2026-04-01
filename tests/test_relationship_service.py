@@ -4,7 +4,7 @@ from datetime import date
 import unittest
 
 from fred_query.schemas.analysis import ObservationPoint
-from fred_query.schemas.intent import ComparisonMode, QueryIntent, TaskType
+from fred_query.schemas.intent import ComparisonMode, QueryIntent, TaskType, TransformType
 from fred_query.schemas.resolved_series import SeriesMetadata, SeriesSearchMatch
 from fred_query.services.relationship_service import RelationshipAnalysisService
 
@@ -106,6 +106,45 @@ class RelationshipAnalysisServiceTest(unittest.TestCase):
         self.assertIn("association estimate", response.answer_text.lower())
         self.assertIn("DCOILBRENTEU", response.answer_text)
         self.assertEqual(client.requests[0], ("DCOILBRENTEU", "m", "avg"))
+
+    def test_analyze_honors_explicit_transform_for_pairwise_requests(self) -> None:
+        client = _FakeFREDClient()
+        service = RelationshipAnalysisService(client)
+        intent = QueryIntent(
+            task_type=TaskType.RELATIONSHIP_ANALYSIS,
+            comparison_mode=ComparisonMode.RELATIONSHIP,
+            indicators=["brent crude oil prices", "inflation"],
+            search_texts=["brent crude oil price", "inflation united states"],
+            start_date=date(2020, 1, 1),
+            transform=TransformType.YEAR_OVER_YEAR_PERCENT_CHANGE,
+        )
+
+        response = service.analyze(intent)
+
+        self.assertEqual(response.analysis.series_results[0].analysis_basis, "Year-over-year percent change")
+        self.assertEqual(response.analysis.series_results[0].analysis_units, "Percent")
+        self.assertEqual(response.analysis.series_results[1].analysis_basis, "Year-over-year percent change")
+        self.assertEqual(response.analysis.derived_metrics[0].value, "Year-over-year percent change")
+
+    def test_analyze_honors_normalization_for_pairwise_requests(self) -> None:
+        client = _FakeFREDClient()
+        service = RelationshipAnalysisService(client)
+        intent = QueryIntent(
+            task_type=TaskType.RELATIONSHIP_ANALYSIS,
+            comparison_mode=ComparisonMode.RELATIONSHIP,
+            indicators=["brent crude oil prices", "inflation"],
+            search_texts=["brent crude oil price", "inflation united states"],
+            start_date=date(2020, 1, 1),
+            transform=TransformType.NORMALIZED_INDEX,
+            normalization=True,
+        )
+
+        response = service.analyze(intent)
+
+        self.assertEqual(response.analysis.series_results[0].analysis_basis, "Normalized index")
+        self.assertEqual(response.analysis.series_results[0].analysis_units, "Index (Base = 100)")
+        self.assertEqual(response.analysis.series_results[0].transformed_observations[0].value, 100.0)
+        self.assertEqual(response.analysis.derived_metrics[0].value, "Normalized index")
 
 
 if __name__ == "__main__":

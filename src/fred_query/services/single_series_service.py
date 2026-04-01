@@ -10,12 +10,12 @@ from fred_query.schemas.analysis import (
     QueryResponse,
     SeriesAnalysis,
 )
-from fred_query.schemas.resolved_series import ResolvedSeries
 from fred_query.services.answer_service import AnswerService
 from fred_query.services.chart_service import ChartService
 from fred_query.services.fred_client import FREDClient
-from fred_query.services.transform_service import TransformService
+from fred_query.services.resolver_service import ResolverService
 from fred_query.schemas.intent import TransformType
+from fred_query.services.vintage_analysis_service import VintageAnalysisService
 
 
 class SingleSeriesLookupService:
@@ -27,14 +27,18 @@ class SingleSeriesLookupService:
         self,
         fred_client: FREDClient,
         *,
+        resolver_service: ResolverService | None = None,
         transform_service: TransformService | None = None,
         chart_service: ChartService | None = None,
         answer_service: AnswerService | None = None,
+        vintage_analysis_service: VintageAnalysisService | None = None,
     ) -> None:
         self.fred_client = fred_client
+        self.resolver_service = resolver_service or ResolverService(fred_client)
         self.transform_service = transform_service or TransformService()
         self.chart_service = chart_service or ChartService()
         self.answer_service = answer_service or AnswerService()
+        self.vintage_analysis_service = vintage_analysis_service or VintageAnalysisService(fred_client)
 
     @staticmethod
     def _default_start_date() -> date:
@@ -125,32 +129,12 @@ class SingleSeriesLookupService:
         )
         normalize_chart = intent.normalization or intent.transform == TransformType.NORMALIZED_INDEX
 
-        if intent.series_id:
-            search_match = None
-            metadata = self.fred_client.get_series_metadata(intent.series_id)
-        else:
-            search_text = intent.search_text or " ".join(intent.indicators)
-            matches = self.fred_client.search_series(search_text, limit=5)
-            if not matches:
-                raise ValueError(f"No FRED series matched search text '{search_text}'.")
-            search_match = matches[0]
-            metadata = self.fred_client.get_series_metadata(search_match.series_id)
-
-        resolved_series = ResolvedSeries(
-            series_id=metadata.series_id,
-            title=metadata.title,
+        search_text = intent.search_text or " ".join(intent.indicators)
+        resolved_series, metadata, search_match = self.resolver_service.resolve_series(
+            explicit_series_id=intent.series_id,
+            search_text=search_text,
             geography=intent.geographies[0].name if intent.geographies else "Unspecified",
             indicator=intent.indicators[0] if intent.indicators else "unknown_indicator",
-            units=metadata.units,
-            frequency=metadata.frequency,
-            seasonal_adjustment=metadata.seasonal_adjustment,
-            score=1.0 if intent.series_id else 0.8,
-            resolution_reason=(
-                f"Used explicit series ID {metadata.series_id}."
-                if intent.series_id
-                else f"Resolved the query via FRED search. Top match was {metadata.series_id}."
-            ),
-            source_url=metadata.source_url,
         )
         response_intent.series_id = metadata.series_id
         if not response_intent.search_text:
@@ -175,13 +159,11 @@ class SingleSeriesLookupService:
             frequency=metadata.frequency,
         )
 
-        observations = self.fred_client.get_series_observations(
+        observations = self.resolver_service.get_required_observations(
             metadata.series_id,
             start_date=fetch_start_date,
             end_date=end_date,
         )
-        if not observations:
-            raise ValueError(f"No observations returned for {metadata.series_id}.")
 
         warnings: list[str] = []
         warnings.extend(transform_warnings)
@@ -243,13 +225,11 @@ class SingleSeriesLookupService:
                     frequency=metadata.frequency,
                 )
             try:
-                historical_observations = self.fred_client.get_series_observations(
+                historical_observations = self.resolver_service.get_required_observations(
                     metadata.series_id,
                     start_date=historical_fetch_start,
                     end_date=latest_date,
                 )
-                if not historical_observations:
-                    historical_observations = observations
             except Exception:
                 historical_observations = observations
                 if historical_fetch_start < observations[0].date:
@@ -356,6 +336,46 @@ class SingleSeriesLookupService:
                 (transformed_observations or visible_observations or normalized_observations)[-1].date
             ),
         )
+
+        # Add vintage analysis if requested
+        if intent.needs_revision_analysis:
+            try:
+                vintage_analysis = self.vintage_analysis_service.analyze_vintage_data(resolved_series)
+
+                # Add vintage-specific derived metrics
+                for comparison in vintage_analysis.comparisons[:3]:  # Limit to first 3 comparisons
+                    if comparison.first_release_value is not None and comparison.current_value is not None:
+                        percent_change = comparison.percent_change_from_first
+                        if percent_change is not None:
+                            analysis.derived_metrics.append(
+                                DerivedMetric(
+                                    name=f"vintage_revision_{comparison.observation_date.isoformat()}",
+                                    value=round(percent_change, 4),
+                                    unit="%",
+                                    description=(
+                                        f"Revision impact for {comparison.observation_date.isoformat()}: "
+                                        f"first release {comparison.first_release_value:.4f} vs "
+                                        f"current {comparison.current_value:.4f} ({percent_change:+.2f}%)"
+                                    ),
+                                )
+                            )
+
+                # Add summary vintage metric if available
+                if vintage_analysis.summary_stats:
+                    avg_change = vintage_analysis.summary_stats.get("average_revision_impact_pct")
+                    if avg_change is not None:
+                        analysis.derived_metrics.append(
+                            DerivedMetric(
+                                name="average_vintage_revision_impact",
+                                value=round(avg_change, 4),
+                                unit="%",
+                                description="Average percentage change from first release across all vintage revisions",
+                            )
+                        )
+            except Exception as e:
+                # If vintage analysis fails, add a warning but continue
+                analysis.warnings.append(f"Vintage analysis unavailable: {str(e)}")
+
         chart = self.chart_service.build_single_series_chart(
             series_result=series_analysis,
             start_year=analysis.coverage_start.year if analysis.coverage_start else visible_observations[0].date.year,

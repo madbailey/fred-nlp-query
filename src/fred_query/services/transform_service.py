@@ -378,21 +378,47 @@ class TransformService:
         *,
         title: str,
         units: str,
+        frequency: str | None,
         periods_per_year: int,
-    ) -> tuple[list[ObservationPoint], str, str]:
+        transform: TransformType = TransformType.LEVEL,
+        normalization: bool = False,
+        requested_window: int | None = None,
+    ) -> tuple[list[ObservationPoint], str, str, int | None, list[str]]:
+        effective_transform = TransformType.LEVEL if transform == TransformType.NORMALIZED_INDEX else transform
+        normalize_chart = normalization or transform == TransformType.NORMALIZED_INDEX
+
+        if effective_transform != TransformType.LEVEL:
+            transform_result = self.apply_single_series_transform(
+                observations,
+                transform=effective_transform,
+                units=units,
+                frequency=frequency,
+                window=requested_window,
+            )
+            return (
+                transform_result.observations or [],
+                transform_result.basis or effective_transform.value.replace("_", " "),
+                transform_result.units,
+                transform_result.applied_window,
+                list(transform_result.warnings),
+            )
+
+        if normalize_chart:
+            return self.normalize_to_index(observations), "Normalized index", "Index (Base = 100)", None, []
+
         if self.should_use_level_relationship(title, units):
-            return observations, "Reported level", units
+            return observations, "Reported level", units, None, []
 
         if periods_per_year > 1:
             year_over_year = self.calculate_pct_change(observations, periods=periods_per_year)
             if len(year_over_year) >= max(8, periods_per_year):
-                return year_over_year, "Year-over-year percent change", "Percent"
+                return year_over_year, "Year-over-year percent change", "Percent", None, []
 
         period_change = self.calculate_pct_change(observations, periods=1)
         if period_change:
-            return period_change, "Period-over-period percent change", "Percent"
+            return period_change, "Period-over-period percent change", "Percent", None, []
 
-        return observations, "Reported level", units
+        return observations, "Reported level", units, None, []
 
     @staticmethod
     def align_on_dates(

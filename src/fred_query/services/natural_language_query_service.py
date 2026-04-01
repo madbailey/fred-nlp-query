@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+<<<<<<< vk/985d-replace-stringly
 from dataclasses import dataclass
 from datetime import date, timedelta
 import re
@@ -7,126 +8,24 @@ import re
 from fred_query.schemas.analysis import RoutedQueryResponse, RoutedQueryStatus
 from fred_query.schemas.intent import ComparisonMode, QueryIntent, TaskType, TransformType
 from fred_query.schemas.resolved_series import ClarificationBadge, ClarificationOption, SeriesSearchMatch
+=======
+from fred_query.schemas.analysis import RoutedQueryResponse
+from fred_query.services.clarification_resolver import ClarificationResolver
+>>>>>>> master
 from fred_query.services.comparison_service import StateGDPComparisonService
 from fred_query.services.cross_section_service import CrossSectionService
 from fred_query.services.fred_client import FREDClient
+from fred_query.services.follow_up_intent_merger import FollowUpIntentMerger
 from fred_query.services.openai_parser_service import OpenAIIntentParser
+from fred_query.services.query_router import QueryRouter
 from fred_query.services.query_session_service import QuerySession
 from fred_query.services.relationship_service import RelationshipAnalysisService
 from fred_query.services.single_series_service import SingleSeriesLookupService
-
-
-@dataclass(frozen=True, slots=True)
-class _SessionTarget:
-    series_id: str | None = None
-    search_text: str | None = None
-    indicator: str | None = None
+from fred_query.services.vintage_analysis_service import VintageAnalysisService
 
 
 class NaturalLanguageQueryService:
     """Route a natural-language query into deterministic execution."""
-
-    _FREQUENCY_LABELS = {
-        "D": "Daily",
-        "W": "Weekly",
-        "BW": "Biweekly",
-        "M": "Monthly",
-        "Q": "Quarterly",
-        "SA": "Semiannual",
-        "A": "Annual",
-    }
-    _STOP_WORDS = {
-        "a",
-        "about",
-        "all",
-        "an",
-        "and",
-        "another",
-        "any",
-        "are",
-        "at",
-        "be",
-        "between",
-        "data",
-        "do",
-        "economy",
-        "economic",
-        "for",
-        "from",
-        "in",
-        "into",
-        "is",
-        "like",
-        "measure",
-        "me",
-        "of",
-        "on",
-        "or",
-        "question",
-        "relationship",
-        "series",
-        "show",
-        "since",
-        "than",
-        "that",
-        "the",
-        "this",
-        "to",
-        "use",
-        "used",
-        "want",
-        "what",
-        "which",
-        "would",
-        "you",
-    }
-    _INSTRUMENT_TERMS = {
-        "bond",
-        "bonds",
-        "coupon",
-        "investment",
-        "maturity",
-        "note",
-        "notes",
-        "security",
-        "securities",
-        "treasury",
-        "yield",
-    }
-    _FOLLOW_UP_TOKENS = {
-        "again",
-        "also",
-        "another",
-        "instead",
-        "it",
-        "same",
-        "that",
-        "them",
-        "then",
-        "those",
-    }
-    _FOLLOW_UP_LEADING_TOKENS = {"also", "now", "then", "instead"}
-    _COMPARISON_TERMS = ("compare", "comparison", "versus", "vs", "against")
-    _RELATIONSHIP_TERMS = ("correlation", "correlate", "co-movement", "lead", "lag", "relationship")
-    _TRANSFORM_TERMS = (
-        "index",
-        "level",
-        "levels",
-        "mom",
-        "moving average",
-        "normalized",
-        "percent change",
-        "qoq",
-        "rolling",
-        "standard deviation",
-        "stddev",
-        "volatility",
-        "yoy",
-        "year over year",
-    )
-    _LATEST_RESET_TERMS = ("current", "latest", "most recent", "now", "today")
-    _ASCENDING_TERMS = ("bottom", "least", "lowest", "smallest")
-    _DESCENDING_TERMS = ("highest", "largest", "most", "top")
 
     def __init__(
         self,
@@ -137,6 +36,7 @@ class NaturalLanguageQueryService:
         cross_section_service: CrossSectionService | None = None,
         single_series_service: SingleSeriesLookupService | None = None,
         relationship_service: RelationshipAnalysisService | None = None,
+        vintage_analysis_service: VintageAnalysisService | None = None,
     ) -> None:
         self.parser = parser
         self.fred_client = fred_client
@@ -144,188 +44,19 @@ class NaturalLanguageQueryService:
         self.cross_section_service = cross_section_service or CrossSectionService(fred_client)
         self.single_series_service = single_series_service or SingleSeriesLookupService(fred_client)
         self.relationship_service = relationship_service or RelationshipAnalysisService(fred_client)
+        self.vintage_analysis_service = vintage_analysis_service or VintageAnalysisService(fred_client)
 
-    @staticmethod
-    def _default_start_date() -> date:
-        return date.today() - timedelta(days=365 * 10)
-
-    @classmethod
-    def _tokenize(cls, text: str | None) -> list[str]:
-        if not text:
-            return []
-        return re.findall(r"[A-Za-z0-9]+", text.lower())
-
-    @classmethod
-    def _significant_terms(cls, texts: list[str]) -> list[str]:
-        seen: set[str] = set()
-        terms: list[str] = []
-        for text in texts:
-            for token in cls._tokenize(text):
-                if len(token) < 3 or token in cls._STOP_WORDS:
-                    continue
-                if token in seen:
-                    continue
-                seen.add(token)
-                terms.append(token)
-        return terms
-
-    @classmethod
-    def _extract_clarification_examples(cls, question: str | None) -> list[str]:
-        if not question:
-            return []
-
-        source = question.strip()
-        if ":" in source:
-            source = source.split(":", maxsplit=1)[1]
-        else:
-            match = re.search(r"\bmean\b(?P<tail>.+)$", source, flags=re.IGNORECASE)
-            if match:
-                source = match.group("tail")
-
-        source = re.sub(r"\bor\s+another\b.*$", "", source, flags=re.IGNORECASE).strip(" ?.")
-        source = re.sub(r"\bor\s+", ", ", source, flags=re.IGNORECASE)
-
-        examples: list[str] = []
-        seen: set[str] = set()
-        for part in source.split(","):
-            cleaned = re.sub(r"^(and|or)\s+", "", part.strip(), flags=re.IGNORECASE).strip(" ?.")
-            if not cleaned:
-                continue
-            lowered = cleaned.lower()
-            if lowered.startswith("another") or lowered.startswith("other"):
-                continue
-            if lowered in seen:
-                continue
-            seen.add(lowered)
-            examples.append(cleaned)
-        return examples[:3]
-
-    def _clarification_search_text(self, intent: QueryIntent) -> str | None:
-        search_text = intent.search_text
-        if (
-            intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS)
-            and intent.clarification_target_index is not None
-            and intent.clarification_target_index < len(intent.search_texts)
-        ):
-            search_text = intent.search_texts[intent.clarification_target_index]
-        return search_text
-
-    @classmethod
-    def _score_candidate(
-        cls,
-        candidate: SeriesSearchMatch,
-        *,
-        search_variants: list[str],
-        anchor_terms: list[str],
-    ) -> float:
-        title_text = f"{candidate.series_id} {candidate.title}".lower()
-        full_text = " ".join(
-            [
-                candidate.series_id,
-                candidate.title,
-                candidate.notes or "",
-                candidate.units or "",
-                candidate.frequency or "",
-            ]
-        ).lower()
-
-        score = 0.0
-        title_matches = 0
-        for term in anchor_terms:
-            if term in title_text:
-                score += 3.0
-                title_matches += 1
-            elif term in full_text:
-                score += 1.0
-
-        for phrase in search_variants:
-            lowered_phrase = phrase.lower().strip()
-            if not lowered_phrase:
-                continue
-            if lowered_phrase in full_text:
-                score += 5.0
-                continue
-
-            phrase_terms = cls._significant_terms([phrase])
-            if phrase_terms:
-                matched_terms = sum(1 for term in phrase_terms if term in title_text)
-                if matched_terms >= max(1, min(2, len(phrase_terms))):
-                    score += 3.5
-
-        if candidate.popularity is not None:
-            score += min(candidate.popularity / 25.0, 2.0)
-
-        if not any(term in anchor_terms for term in cls._INSTRUMENT_TERMS):
-            penalty_hits = sum(1 for term in cls._INSTRUMENT_TERMS if term in title_text)
-            score -= penalty_hits * 1.5
-
-        if title_matches == 0:
-            score -= 2.0
-
-        if cls._is_plain_inflation_request(search_variants):
-            if cls._is_base_price_index(candidate):
-                score += 2.5
-            if cls._has_specialized_inflation_variant(candidate):
-                score -= 2.0
-
-        return score
-
-    @staticmethod
-    def _candidate_title_key(candidate: SeriesSearchMatch) -> str:
-        return re.sub(r"\s+", " ", candidate.title.strip().lower())
-
-    @classmethod
-    def _dedupe_candidates(cls, candidates: list[SeriesSearchMatch]) -> list[SeriesSearchMatch]:
-        deduped: list[SeriesSearchMatch] = []
-        seen: set[str] = set()
-        for candidate in candidates:
-            key = cls._candidate_title_key(candidate)
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(candidate)
-        return deduped
-
-    @classmethod
-    def _dedupe_ranked_candidates(
-        cls,
-        ranked_candidates: list[tuple[float, SeriesSearchMatch]],
-    ) -> list[SeriesSearchMatch]:
-        deduped: list[SeriesSearchMatch] = []
-        seen: set[str] = set()
-        for _, candidate in ranked_candidates:
-            key = cls._candidate_title_key(candidate)
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(candidate)
-        return deduped
-
-    @classmethod
-    def _variant_priority_score(cls, candidate: SeriesSearchMatch, variant: str) -> float:
-        score = 0.0
-        normalized_variant = cls._normalized_text(variant)
-        if "inflation" in normalized_variant and cls._is_plain_inflation_request([variant]):
-            if cls._is_base_price_index(candidate):
-                score += 3.0
-            if cls._has_specialized_inflation_variant(candidate):
-                score -= 2.5
-        return score
-
-    @staticmethod
-    def _normalized_text(value: str | None) -> str:
-        return (value or "").strip().lower()
-
-    @classmethod
-    def _is_plain_inflation_request(cls, search_variants: list[str]) -> bool:
-        combined = " ".join(search_variants).lower()
-        if "inflation" not in combined:
-            return False
-        return not any(
-            term in combined
-            for term in ("core", "trimmed", "breakeven", "deflator", "producer", "annualized", "year over year")
+        self.clarification_resolver = ClarificationResolver(fred_client)
+        self.follow_up_intent_merger = FollowUpIntentMerger(parser)
+        self.query_router = QueryRouter(
+            clarification_resolver=self.clarification_resolver,
+            state_gdp_service=self.state_gdp_service,
+            cross_section_service=self.cross_section_service,
+            single_series_service=self.single_series_service,
+            relationship_service=self.relationship_service,
         )
 
+<<<<<<< vk/985d-replace-stringly
     @classmethod
     def _candidate_has_any(cls, candidate: SeriesSearchMatch, terms: tuple[str, ...]) -> bool:
         text = cls._candidate_text(candidate)
@@ -1019,6 +750,8 @@ class NaturalLanguageQueryService:
         )
         return merged
 
+=======
+>>>>>>> master
     def ask(
         self,
         query: str,
@@ -1031,74 +764,6 @@ class NaturalLanguageQueryService:
         if effective_selected_series_ids is None and selected_series_id is not None:
             effective_selected_series_ids = [selected_series_id]
 
-        intent = self._parse_intent(query, session_context)
-        intent = self._merge_follow_up_intent(query, intent, session_context)
-        intent = self._apply_selected_series(intent, effective_selected_series_ids)
-
-        if intent.clarification_needed:
-            candidate_series = self._build_clarification_candidates(intent)
-            return RoutedQueryResponse(
-                status=RoutedQueryStatus.NEEDS_CLARIFICATION,
-                intent=intent,
-                answer_text=self._clarification_answer_text(intent, candidate_series=candidate_series),
-                candidate_series=candidate_series,
-            )
-
-        if intent.task_type == TaskType.STATE_GDP_COMPARISON:
-            if len(intent.geographies) != 2:
-                return RoutedQueryResponse(
-                    status=RoutedQueryStatus.NEEDS_CLARIFICATION,
-                    intent=intent,
-                    answer_text="I need exactly two US states to run the GDP comparison.",
-                )
-
-            query_response = self.state_gdp_service.compare(
-                state1=intent.geographies[0].name,
-                state2=intent.geographies[1].name,
-                start_date=intent.start_date or self._default_start_date(),
-                end_date=intent.end_date,
-                normalize=intent.normalization,
-            )
-            return RoutedQueryResponse(
-                status=RoutedQueryStatus.COMPLETED,
-                intent=query_response.intent,
-                answer_text=query_response.answer_text,
-                query_response=query_response,
-            )
-
-        if intent.task_type == TaskType.SINGLE_SERIES_LOOKUP:
-            query_response = self.single_series_service.lookup(intent)
-            return RoutedQueryResponse(
-                status=RoutedQueryStatus.COMPLETED,
-                intent=query_response.intent,
-                answer_text=query_response.answer_text,
-                query_response=query_response,
-            )
-
-        if intent.task_type == TaskType.CROSS_SECTION:
-            query_response = self.cross_section_service.analyze(intent)
-            return RoutedQueryResponse(
-                status=RoutedQueryStatus.COMPLETED,
-                intent=query_response.intent,
-                answer_text=query_response.answer_text,
-                query_response=query_response,
-            )
-
-        if intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS):
-            query_response = self.relationship_service.analyze(intent)
-            return RoutedQueryResponse(
-                status=RoutedQueryStatus.COMPLETED,
-                intent=query_response.intent,
-                answer_text=query_response.answer_text,
-                query_response=query_response,
-            )
-
-        return RoutedQueryResponse(
-            status=RoutedQueryStatus.UNSUPPORTED,
-            intent=intent,
-            answer_text=(
-                "The parser understood the request, but there is no deterministic execution path for it yet. "
-                "Right now the live implementation supports state GDP comparisons, point-in-time cross sections, "
-                "single-series lookups, and pairwise non-state relationship analysis."
-            ),
-        )
+        intent = self.follow_up_intent_merger.parse_intent(query, session_context)
+        intent = self.follow_up_intent_merger.merge(query, intent, session_context)
+        return self.query_router.route(intent, selected_series_ids=effective_selected_series_ids)
