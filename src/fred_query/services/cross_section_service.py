@@ -52,6 +52,10 @@ class CrossSectionService:
             return "Latest available observation"
         return f"Latest observation on or before {observation_date.isoformat()}"
 
+    @staticmethod
+    def _aligned_snapshot_basis(observation_date: date) -> str:
+        return f"Latest cross-section aligned on or before {observation_date.isoformat()}"
+
     def _resolve_single_series(self, intent: QueryIntent, indicator_text: str) -> ResolvedSeries:
         resolved, _, _ = self.resolver_service.resolve_series(
             explicit_series_id=intent.series_id,
@@ -133,6 +137,29 @@ class CrossSectionService:
         )
         return observations[0]
 
+    def _resolve_snapshot_date(
+        self,
+        resolved_series: list[ResolvedSeries],
+        *,
+        observation_date: date | None,
+        frequency: str | None,
+    ) -> tuple[date | None, str]:
+        if observation_date is not None or len(resolved_series) <= 1:
+            return observation_date, self._snapshot_basis(observation_date)
+
+        latest_points: list[ObservationPoint] = []
+        for resolved in resolved_series:
+            latest_points.append(
+                self._fetch_snapshot_point(
+                    resolved,
+                    observation_date=None,
+                    frequency=frequency,
+                )
+            )
+
+        aligned_date = min(point.date for point in latest_points)
+        return aligned_date, self._aligned_snapshot_basis(aligned_date)
+
     @staticmethod
     def _sort_results(
         series_results: list[SeriesAnalysis],
@@ -163,13 +190,18 @@ class CrossSectionService:
         response_intent.cross_section_scope = scope
 
         indicator_text = self._indicator_text(response_intent)
-        observation_date = response_intent.observation_date or response_intent.end_date
-        response_intent.observation_date = observation_date
+        requested_observation_date = response_intent.observation_date or response_intent.end_date
 
         resolved_series = self._resolve_series(response_intent, scope, indicator_text)
         if scope == CrossSectionScope.SINGLE_SERIES and resolved_series:
             response_intent.series_id = resolved_series[0].series_id
             response_intent.search_text = response_intent.search_text or indicator_text
+        observation_date, snapshot_basis = self._resolve_snapshot_date(
+            resolved_series,
+            observation_date=requested_observation_date,
+            frequency=response_intent.frequency,
+        )
+        response_intent.observation_date = observation_date
         series_results: list[SeriesAnalysis] = []
         warnings: list[str] = []
 
@@ -211,7 +243,6 @@ class CrossSectionService:
 
         response_intent.rank_limit = display_limit if len(displayed_results) != len(ranked_results) else response_intent.rank_limit
         leader = ranked_results[0]
-        snapshot_basis = self._snapshot_basis(observation_date)
         rank_label = "highest" if response_intent.sort_descending else "lowest"
 
         derived_metrics = [

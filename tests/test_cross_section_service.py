@@ -16,6 +16,7 @@ class CrossSectionServiceTest(unittest.TestCase):
     def _build_state_ranking_client(
         self,
         state_values: dict[str, tuple[str, float]] | None = None,
+        observation_payloads_by_series: dict[str, list[dict[str, str]]] | None = None,
     ) -> tuple[FREDClient, list[dict[str, str]]]:
         requests: list[dict[str, str]] = []
         state_values = state_values or {
@@ -38,7 +39,14 @@ class CrossSectionServiceTest(unittest.TestCase):
                     }
                 ]
             }
-            observation_payloads[series_id] = {"observations": [{"date": "2024-01-01", "value": str(value)}]}
+            observations = (
+                observation_payloads_by_series.get(series_id)
+                if observation_payloads_by_series is not None
+                else None
+            )
+            observation_payloads[series_id] = {
+                "observations": observations or [{"date": "2024-01-01", "value": str(value)}]
+            }
 
         def handler(request: httpx.Request) -> httpx.Response:
             requests.append(dict(request.url.params))
@@ -47,7 +55,22 @@ class CrossSectionServiceTest(unittest.TestCase):
                 return httpx.Response(status_code=200, text=json.dumps(metadata_payloads[series_id]))
             if request.url.path.endswith("/series/observations"):
                 series_id = request.url.params["series_id"]
-                return httpx.Response(status_code=200, text=json.dumps(observation_payloads[series_id]))
+                observations = observation_payloads[series_id]["observations"]
+                observation_end = request.url.params.get("observation_end")
+                if observation_end:
+                    observations = [
+                        item for item in observations if item["date"] <= observation_end
+                    ]
+                sort_order = request.url.params.get("sort_order")
+                observations = sorted(
+                    observations,
+                    key=lambda item: item["date"],
+                    reverse=sort_order == "desc",
+                )
+                limit = request.url.params.get("limit")
+                if limit:
+                    observations = observations[: int(limit)]
+                return httpx.Response(status_code=200, text=json.dumps({"observations": observations}))
             return httpx.Response(status_code=404, json={"error_message": "not found"})
 
         transport = httpx.MockTransport(handler)
@@ -122,7 +145,7 @@ class CrossSectionServiceTest(unittest.TestCase):
         self.assertEqual(response.chart.series[0].y, [6.5, 5.0])
         self.assertIn("Nevada ranks highest", response.answer_text)
         observation_requests = [item for item in requests if item.get("series_id") in {"CAUR", "TXUR", "NVUR"} and item.get("sort_order") == "desc"]
-        self.assertEqual(len(observation_requests), 3)
+        self.assertEqual(len(observation_requests), 6)
         self.assertTrue(all(item.get("limit") == "1" for item in observation_requests))
         self.assertEqual(response.chart.to_plotly_dict()["data"][0]["type"], "bar")
 
@@ -186,6 +209,47 @@ class CrossSectionServiceTest(unittest.TestCase):
         self.assertEqual(response.chart.series[0].y, [300.54])
         self.assertEqual(response.analysis.series_results[0].latest_observation_date, date(2023, 1, 1))
         self.assertIn("2023-01-01", response.answer_text)
+
+    def test_latest_cross_section_aligns_to_shared_snapshot_date(self) -> None:
+        observation_payloads = {
+            "CAUR": [
+                {"date": "2024-01-01", "value": "4.0"},
+                {"date": "2023-01-01", "value": "5.0"},
+            ],
+            "TXUR": [
+                {"date": "2023-01-01", "value": "4.5"},
+            ],
+        }
+        client, _ = self._build_state_ranking_client(
+            state_values={"CA": ("California", 4.0), "TX": ("Texas", 4.5)},
+            observation_payloads_by_series=observation_payloads,
+        )
+        service = CrossSectionService(client)
+        intent = QueryIntent(
+            task_type=TaskType.CROSS_SECTION,
+            indicators=["unemployment rate"],
+            search_text="unemployment rate",
+            comparison_mode=ComparisonMode.CROSS_SECTION,
+            cross_section_scope=CrossSectionScope.STATES,
+        )
+
+        with patch.dict(
+            "fred_query.services.cross_section_service.STATE_CODE_TO_NAME",
+            {"CA": "California", "TX": "Texas"},
+            clear=True,
+        ):
+            response = service.analyze(intent)
+
+        self.assertEqual(response.intent.observation_date, date(2023, 1, 1))
+        self.assertEqual(
+            [result.series.geography for result in response.analysis.series_results],
+            ["California", "Texas"],
+        )
+        self.assertEqual(
+            [result.latest_observation_date for result in response.analysis.series_results],
+            [date(2023, 1, 1), date(2023, 1, 1)],
+        )
+        self.assertIn("Latest cross-section aligned on or before 2023-01-01", response.answer_text)
 
 
 if __name__ == "__main__":

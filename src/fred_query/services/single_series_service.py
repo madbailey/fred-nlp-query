@@ -15,7 +15,7 @@ from fred_query.services.chart_service import ChartService
 from fred_query.services.fred_client import FREDClient
 from fred_query.services.resolver_service import ResolverService
 from fred_query.schemas.intent import TransformType
-from fred_query.services.transform_service import TransformService
+from fred_query.services.vintage_analysis_service import VintageAnalysisService
 
 
 class SingleSeriesLookupService:
@@ -31,12 +31,14 @@ class SingleSeriesLookupService:
         transform_service: TransformService | None = None,
         chart_service: ChartService | None = None,
         answer_service: AnswerService | None = None,
+        vintage_analysis_service: VintageAnalysisService | None = None,
     ) -> None:
         self.fred_client = fred_client
         self.resolver_service = resolver_service or ResolverService(fred_client)
         self.transform_service = transform_service or TransformService()
         self.chart_service = chart_service or ChartService()
         self.answer_service = answer_service or AnswerService()
+        self.vintage_analysis_service = vintage_analysis_service or VintageAnalysisService(fred_client)
 
     @staticmethod
     def _default_start_date() -> date:
@@ -334,6 +336,46 @@ class SingleSeriesLookupService:
                 (transformed_observations or visible_observations or normalized_observations)[-1].date
             ),
         )
+
+        # Add vintage analysis if requested
+        if intent.needs_revision_analysis:
+            try:
+                vintage_analysis = self.vintage_analysis_service.analyze_vintage_data(resolved_series)
+
+                # Add vintage-specific derived metrics
+                for comparison in vintage_analysis.comparisons[:3]:  # Limit to first 3 comparisons
+                    if comparison.first_release_value is not None and comparison.current_value is not None:
+                        percent_change = comparison.percent_change_from_first
+                        if percent_change is not None:
+                            analysis.derived_metrics.append(
+                                DerivedMetric(
+                                    name=f"vintage_revision_{comparison.observation_date.isoformat()}",
+                                    value=round(percent_change, 4),
+                                    unit="%",
+                                    description=(
+                                        f"Revision impact for {comparison.observation_date.isoformat()}: "
+                                        f"first release {comparison.first_release_value:.4f} vs "
+                                        f"current {comparison.current_value:.4f} ({percent_change:+.2f}%)"
+                                    ),
+                                )
+                            )
+
+                # Add summary vintage metric if available
+                if vintage_analysis.summary_stats:
+                    avg_change = vintage_analysis.summary_stats.get("average_revision_impact_pct")
+                    if avg_change is not None:
+                        analysis.derived_metrics.append(
+                            DerivedMetric(
+                                name="average_vintage_revision_impact",
+                                value=round(avg_change, 4),
+                                unit="%",
+                                description="Average percentage change from first release across all vintage revisions",
+                            )
+                        )
+            except Exception as e:
+                # If vintage analysis fails, add a warning but continue
+                analysis.warnings.append(f"Vintage analysis unavailable: {str(e)}")
+
         chart = self.chart_service.build_single_series_chart(
             series_result=series_analysis,
             start_year=analysis.coverage_start.year if analysis.coverage_start else visible_observations[0].date.year,
