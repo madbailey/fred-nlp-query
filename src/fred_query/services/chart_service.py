@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import colorsys
 from datetime import date
 
 from fred_query.schemas.analysis import SeriesAnalysis
@@ -9,7 +10,32 @@ from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace, DateSpanAn
 class ChartService:
     """Chart-spec generation for deterministic analysis flows."""
 
-    _COLORS = ["#1f77b4", "#ff7f0e", "#111111"]
+    _BASE_COLORS = [
+        "#636EFA",
+        "#EF553B",
+        "#00CC96",
+        "#AB63FA",
+        "#FFA15A",
+        "#19D3F3",
+        "#FF6692",
+        "#B6E880",
+        "#FF97FF",
+        "#FECB52",
+    ]
+
+    @classmethod
+    def _color_for_index(cls, index: int) -> str:
+        if index < len(cls._BASE_COLORS):
+            return cls._BASE_COLORS[index]
+
+        overflow_index = index - len(cls._BASE_COLORS)
+        hue = (overflow_index * 0.618033988749895) % 1.0
+        red, green, blue = colorsys.hls_to_rgb(hue, 0.52, 0.65)
+        return f"#{int(red * 255):02X}{int(green * 255):02X}{int(blue * 255):02X}"
+
+    @classmethod
+    def _colors_for_count(cls, count: int) -> list[str]:
+        return [cls._color_for_index(index) for index in range(count)]
 
     @staticmethod
     def _compact_title(title: str) -> str:
@@ -53,7 +79,7 @@ class ChartService:
                     name=result.series.geography,
                     x=[point.date for point in points],
                     y=[round(point.value, 4) for point in points],
-                    line=LineStyle(color=self._COLORS[index % len(self._COLORS)], width=3 if index == 0 else 2),
+                    line=LineStyle(color=self._color_for_index(index), width=3 if index == 0 else 2),
                 )
             )
 
@@ -109,7 +135,7 @@ class ChartService:
                     name=self._series_label(series_result),
                     x=[point.date for point in points or []],
                     y=[round(point.value, 4) for point in points or []],
-                    line=LineStyle(color=self._COLORS[0], width=3),
+                    line=LineStyle(color=self._color_for_index(0), width=3),
                 )
             ],
             annotations=recession_periods,
@@ -136,7 +162,7 @@ class ChartService:
                     name=label,
                     x=[point.date for point in points],
                     y=[round(point.value, 4) for point in points],
-                    line=LineStyle(color=self._COLORS[index % len(self._COLORS)], width=3 if index == 0 else 2),
+                    line=LineStyle(color=self._color_for_index(index), width=3 if index == 0 else 2),
                 )
             )
 
@@ -168,6 +194,7 @@ class ChartService:
             for result in series_results
             if result.latest_value is not None
         ]
+        colors = self._colors_for_count(len(ranked_pairs))
         return ChartSpec(
             chart_type="bar",
             title=title,
@@ -179,7 +206,7 @@ class ChartService:
                     name=title,
                     x_categories=[label for label, _ in ranked_pairs],
                     y=[value for _, value in ranked_pairs],
-                    line=LineStyle(color=self._COLORS[0]),
+                    line=LineStyle(color=colors),
                 )
             ],
             source_note="Source: FRED, Federal Reserve Bank of St. Louis",

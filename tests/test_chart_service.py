@@ -101,6 +101,41 @@ class ChartServiceTest(unittest.TestCase):
 
         self.assertEqual(chart.series[0].name, "Unemployment Rate")
 
+    def test_cross_section_chart_assigns_distinct_colors_across_large_rankings(self) -> None:
+        service = ChartService()
+        series_results = [
+            SeriesAnalysis(
+                series=ResolvedSeries(
+                    series_id=f"S{i:02d}",
+                    title=f"Series {i}",
+                    geography=f"State {i}",
+                    indicator="fixture",
+                    units="Percent",
+                    frequency="M",
+                    resolution_reason="fixture",
+                    source_url=f"https://fred.stlouisfed.org/series/S{i:02d}",
+                ),
+                latest_value=float(i),
+                latest_observation_date=date(2024, 1, 1),
+            )
+            for i in range(12)
+        ]
+
+        chart = service.build_cross_section_chart(
+            series_results=series_results,
+            title="State ranking",
+            subtitle="Latest values",
+            y_axis_title="Percent",
+        )
+        plotly_figure = chart.to_plotly_dict()
+
+        self.assertEqual(len(chart.series[0].line.color), 12)
+        self.assertEqual(len(set(chart.series[0].line.color)), 12)
+        self.assertEqual(
+            plotly_figure["data"][0]["marker"]["color"],
+            chart.series[0].line.color,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

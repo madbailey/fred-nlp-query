@@ -14,7 +14,7 @@ class AxisSpec(BaseModel):
 class LineStyle(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    color: str | None = None
+    color: str | list[str] | None = None
     width: int | None = None
     dash: str | None = None
 
