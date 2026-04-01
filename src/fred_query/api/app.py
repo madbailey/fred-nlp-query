@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import contextmanager
 import logging
 from pathlib import Path
 
@@ -29,21 +30,22 @@ def get_app_settings() -> Settings:
 
 
 def get_fred_client(settings: Settings = Depends(get_app_settings)) -> Iterator[FREDClient]:
-    client = FREDClient(
-        api_key=settings.fred_api_key or "",
-        base_url=settings.fred_base_url,
-        timeout_seconds=settings.http_timeout_seconds,
-    )
+    client = _create_fred_client(settings)
     try:
         yield client
     finally:
         client.close()
 
 
-def get_natural_language_query_service(
-    settings: Settings = Depends(get_app_settings),
-    fred_client: FREDClient = Depends(get_fred_client),
-) -> NaturalLanguageQueryService:
+def _create_fred_client(settings: Settings) -> FREDClient:
+    return FREDClient(
+        api_key=settings.fred_api_key or "",
+        base_url=settings.fred_base_url,
+        timeout_seconds=settings.http_timeout_seconds,
+    )
+
+
+def _create_natural_language_query_service(settings: Settings, fred_client: FREDClient) -> NaturalLanguageQueryService:
     parser = OpenAIIntentParser(
         api_key=settings.openai_api_key or "",
         model=settings.openai_model,
@@ -55,6 +57,13 @@ def get_natural_language_query_service(
     )
 
 
+def get_natural_language_query_service(
+    settings: Settings = Depends(get_app_settings),
+    fred_client: FREDClient = Depends(get_fred_client),
+) -> NaturalLanguageQueryService:
+    return _create_natural_language_query_service(settings, fred_client)
+
+
 def get_state_gdp_comparison_service(
     fred_client: FREDClient = Depends(get_fred_client),
 ) -> StateGDPComparisonService:
@@ -63,6 +72,40 @@ def get_state_gdp_comparison_service(
 
 def get_query_session_service() -> QuerySessionService:
     return QUERY_SESSION_SERVICE
+
+
+@contextmanager
+def _managed_natural_language_query_service(
+    app: FastAPI,
+) -> Iterator[NaturalLanguageQueryService]:
+    override = app.dependency_overrides.get(get_natural_language_query_service)
+    if override is not None:
+        yield override()
+        return
+
+    settings = get_app_settings()
+    fred_client = _create_fred_client(settings)
+    try:
+        yield _create_natural_language_query_service(settings, fred_client)
+    finally:
+        fred_client.close()
+
+
+@contextmanager
+def _managed_state_gdp_comparison_service(
+    app: FastAPI,
+) -> Iterator[StateGDPComparisonService]:
+    override = app.dependency_overrides.get(get_state_gdp_comparison_service)
+    if override is not None:
+        yield override()
+        return
+
+    settings = get_app_settings()
+    fred_client = _create_fred_client(settings)
+    try:
+        yield StateGDPComparisonService(fred_client)
+    finally:
+        fred_client.close()
 
 
 def create_app() -> FastAPI:
@@ -128,7 +171,6 @@ def create_app() -> FastAPI:
     @app.post("/api/ask", response_model=ApiRoutedQueryResponse)
     def ask(
         request: AskRequest,
-        service: NaturalLanguageQueryService = Depends(get_natural_language_query_service),
         query_session_service: QuerySessionService = Depends(get_query_session_service),
     ) -> ApiRoutedQueryResponse:
         session = query_session_service.get_or_create(request.session_id)
@@ -136,12 +178,13 @@ def create_app() -> FastAPI:
             session_id=session.session_id,
             revision_id=request.base_revision_id,
         )
-        response = service.ask(
-            request.query,
-            selected_series_id=request.selected_series_id,
-            selected_series_ids=request.selected_series_ids,
-            session_context=session_context,
-        )
+        with _managed_natural_language_query_service(app) as service:
+            response = service.ask(
+                request.query,
+                selected_series_id=request.selected_series_id,
+                selected_series_ids=request.selected_series_ids,
+                session_context=session_context,
+            )
         stored_session, revision = query_session_service.store_turn(
             session_id=session.session_id,
             query=request.query,
@@ -156,15 +199,15 @@ def create_app() -> FastAPI:
     @app.post("/api/compare/state-gdp", response_model=ApiQueryResponse)
     def compare_state_gdp(
         request: StateGDPCompareRequest,
-        service: StateGDPComparisonService = Depends(get_state_gdp_comparison_service),
     ) -> ApiQueryResponse:
-        response = service.compare(
-            state1=request.state1,
-            state2=request.state2,
-            start_date=request.start_date,
-            end_date=request.end_date,
-            normalize=request.normalize,
-        )
+        with _managed_state_gdp_comparison_service(app) as service:
+            response = service.compare(
+                state1=request.state1,
+                state2=request.state2,
+                start_date=request.start_date,
+                end_date=request.end_date,
+                normalize=request.normalize,
+            )
         return ApiQueryResponse.from_query_response(response)
 
     return app
