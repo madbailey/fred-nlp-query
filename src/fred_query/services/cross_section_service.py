@@ -53,39 +53,13 @@ class CrossSectionService:
         return f"Latest observation on or before {observation_date.isoformat()}"
 
     def _resolve_single_series(self, intent: QueryIntent, indicator_text: str) -> ResolvedSeries:
-        if intent.series_id:
-            metadata = self.fred_client.get_series_metadata(intent.series_id)
-            return ResolvedSeries(
-                series_id=metadata.series_id,
-                title=metadata.title,
-                geography=intent.geographies[0].name if intent.geographies else "Unspecified",
-                indicator=self._indicator_slug(indicator_text),
-                units=metadata.units,
-                frequency=metadata.frequency,
-                seasonal_adjustment=metadata.seasonal_adjustment,
-                score=1.0,
-                resolution_reason=f"Used explicit series ID {metadata.series_id}.",
-                source_url=metadata.source_url,
-            )
-
-        matches = self.fred_client.search_series(indicator_text, limit=5)
-        if not matches:
-            raise ValueError(f"No FRED series matched search text '{indicator_text}'.")
-
-        search_match = matches[0]
-        metadata = self.fred_client.get_series_metadata(search_match.series_id)
-        return ResolvedSeries(
-            series_id=metadata.series_id,
-            title=metadata.title,
+        resolved, _, _ = self.resolver_service.resolve_series(
+            explicit_series_id=intent.series_id,
+            search_text=indicator_text,
             geography=intent.geographies[0].name if intent.geographies else "Unspecified",
             indicator=self._indicator_slug(indicator_text),
-            units=metadata.units,
-            frequency=metadata.frequency,
-            seasonal_adjustment=metadata.seasonal_adjustment,
-            score=0.8,
-            resolution_reason=f"Resolved the query via FRED search. Top match was {metadata.series_id}.",
-            source_url=metadata.source_url,
         )
+        return resolved
 
     def _resolve_geography_series(self, intent: QueryIntent, indicator_text: str) -> list[ResolvedSeries]:
         resolved_series: list[ResolvedSeries] = []
@@ -112,29 +86,15 @@ class CrossSectionService:
             geography_search = " ".join(
                 part for part in [geography.name, intent.search_text or indicator_text] if part
             )
-            matches = self.fred_client.search_series(geography_search, limit=5)
-            if not matches:
-                raise ValueError(f"No FRED series matched search text '{geography_search}'.")
-
-            search_match = matches[0]
-            metadata = self.fred_client.get_series_metadata(search_match.series_id)
-            resolved_series.append(
-                ResolvedSeries(
-                    series_id=metadata.series_id,
-                    title=metadata.title,
-                    geography=geography.name,
-                    indicator=self._indicator_slug(indicator_text),
-                    units=metadata.units,
-                    frequency=metadata.frequency,
-                    seasonal_adjustment=metadata.seasonal_adjustment,
-                    score=0.8,
-                    resolution_reason=(
-                        f"Resolved {geography.name} via FRED search. Top match for '{geography_search}' "
-                        f"was {metadata.series_id}."
-                    ),
-                    source_url=metadata.source_url,
-                )
+            resolved, _, _ = self.resolver_service.resolve_series(
+                search_text=geography_search,
+                geography=geography.name,
+                indicator=self._indicator_slug(indicator_text),
+                search_resolution_reason=(
+                    "Resolved {geography} via FRED search. Top match for '{search_text}' was {series_id}."
+                ),
             )
+            resolved_series.append(resolved)
         return resolved_series
 
     def _resolve_series(self, intent: QueryIntent, scope: CrossSectionScope, indicator_text: str) -> list[ResolvedSeries]:
@@ -159,17 +119,18 @@ class CrossSectionService:
         frequency: str | None,
     ) -> ObservationPoint:
         aggregation_method = "avg" if frequency else None
-        observations = self.fred_client.get_series_observations(
+        observations = self.resolver_service.get_required_observations(
             series.series_id,
             end_date=observation_date,
             frequency=frequency,
             aggregation_method=aggregation_method,
             limit=1,
             sort_order="desc",
+            empty_result_message=(
+                f"No observations returned for {series.series_id} at "
+                f"{observation_date.isoformat() if observation_date is not None else 'the latest date'}."
+            ),
         )
-        if not observations:
-            date_text = observation_date.isoformat() if observation_date is not None else "the latest date"
-            raise ValueError(f"No observations returned for {series.series_id} at {date_text}.")
         return observations[0]
 
     @staticmethod
