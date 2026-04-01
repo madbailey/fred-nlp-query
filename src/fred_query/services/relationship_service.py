@@ -7,6 +7,7 @@ from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata
 from fred_query.services.answer_service import AnswerService
 from fred_query.services.chart_service import ChartService
 from fred_query.services.fred_client import FREDClient
+from fred_query.services.resolver_service import ResolverService
 from fred_query.services.transform_service import TransformService
 from fred_query.schemas.intent import TransformType
 
@@ -18,11 +19,13 @@ class RelationshipAnalysisService:
         self,
         fred_client: FREDClient,
         *,
+        resolver_service: ResolverService | None = None,
         transform_service: TransformService | None = None,
         chart_service: ChartService | None = None,
         answer_service: AnswerService | None = None,
     ) -> None:
         self.fred_client = fred_client
+        self.resolver_service = resolver_service or ResolverService(fred_client)
         self.transform_service = transform_service or TransformService()
         self.chart_service = chart_service or ChartService()
         self.answer_service = answer_service or AnswerService()
@@ -62,50 +65,18 @@ class RelationshipAnalysisService:
         return f"Negative values mean {second_name} tends to lead {first_name} by {abs(lag)} {lag_unit}."
 
     def _resolve_series(self, intent: QueryIntent, index: int) -> tuple[ResolvedSeries, SeriesMetadata]:
-        explicit_series_id = self._series_id_for_index(intent, index)
-        if explicit_series_id:
-            metadata = self.fred_client.get_series_metadata(explicit_series_id)
-            return (
-                ResolvedSeries(
-                    series_id=metadata.series_id,
-                    title=metadata.title,
-                    geography="Unspecified",
-                    indicator=self._indicator_for_index(intent, index, metadata.title),
-                    units=metadata.units,
-                    frequency=metadata.frequency,
-                    seasonal_adjustment=metadata.seasonal_adjustment,
-                    score=1.0,
-                    resolution_reason=f"Used explicit series ID {metadata.series_id}.",
-                    source_url=metadata.source_url,
-                ),
-                metadata,
-            )
-
-        search_text = self._search_text_for_index(intent, index)
-        if not search_text:
-            raise ValueError("I need two resolvable series targets before I can run relationship analysis.")
-
-        matches = self.fred_client.search_series(search_text, limit=5)
-        if not matches:
-            raise ValueError(f"No FRED series matched search text '{search_text}'.")
-
-        search_match = matches[0]
-        metadata = self.fred_client.get_series_metadata(search_match.series_id)
-        return (
-            ResolvedSeries(
-                series_id=metadata.series_id,
-                title=metadata.title,
-                geography="Unspecified",
-                indicator=self._indicator_for_index(intent, index, search_text),
-                units=metadata.units,
-                frequency=metadata.frequency,
-                seasonal_adjustment=metadata.seasonal_adjustment,
-                score=0.8,
-                resolution_reason=f"Resolved the query via FRED search. Top match was {metadata.series_id}.",
-                source_url=metadata.source_url,
+        resolved, metadata, _ = self.resolver_service.resolve_series(
+            explicit_series_id=self._series_id_for_index(intent, index),
+            search_text=self._search_text_for_index(intent, index),
+            geography="Unspecified",
+            indicator=self._indicator_for_index(
+                intent,
+                index,
+                self._search_text_for_index(intent, index) or "unknown_indicator",
             ),
-            metadata,
+            no_target_message="I need two resolvable series targets before I can run relationship analysis.",
         )
+        return resolved, metadata
 
     def analyze(self, intent: QueryIntent) -> QueryResponse:
         response_intent = intent.model_copy(deep=True)
@@ -160,15 +131,13 @@ class RelationshipAnalysisService:
         applied_transform_window: int | None = None
 
         for metadata in metadata_items:
-            observations = self.fred_client.get_series_observations(
+            observations = self.resolver_service.get_required_observations(
                 metadata.series_id,
                 start_date=fetch_start_date,
                 end_date=end_date,
                 frequency=frequency_code,
                 aggregation_method="avg",
             )
-            if not observations:
-                raise ValueError(f"No observations returned for {metadata.series_id}.")
 
             visible_observations = self.transform_service.filter_observations_by_date(
                 observations,
