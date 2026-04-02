@@ -46,7 +46,7 @@
     "expect": {
       "task_type": "cross_section",
       "cross_section_scope": "states",
-      "search_text_contains": "gdp",
+      "search_text_contains_any": ["gdp", "gross domestic product"],
       "sort_descending": true,
       "clarification_needed": false
     }

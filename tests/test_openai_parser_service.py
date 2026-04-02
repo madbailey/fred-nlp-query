@@ -19,8 +19,10 @@ from fred_query.services.openai_parser_service import OpenAIIntentParser
 class _FakeResponsesAPI:
     def __init__(self, intent: QueryIntent) -> None:
         self.intent = intent
+        self.last_kwargs: dict[str, object] | None = None
 
     def parse(self, **_: object) -> object:
+        self.last_kwargs = _
         return SimpleNamespace(output_parsed=self.intent)
 
 
@@ -150,6 +152,23 @@ class OpenAIIntentParserTest(unittest.TestCase):
         self.assertEqual(parsed.transform, TransformType.ROLLING_VOLATILITY)
         self.assertEqual(parsed.transform_window, 30)
         self.assertFalse(parsed.normalization)
+
+    def test_parser_omits_reasoning_for_non_reasoning_models(self) -> None:
+        intent = QueryIntent(
+            task_type=TaskType.SINGLE_SERIES_LOOKUP,
+            search_text="unemployment",
+        )
+        client = _FakeOpenAIClient(intent)
+        parser = OpenAIIntentParser(
+            api_key="test-key",
+            reasoning_effort=None,
+            client=client,
+        )
+
+        parser.parse("Show me unemployment")
+
+        self.assertIsNotNone(client.responses.last_kwargs)
+        self.assertNotIn("reasoning", client.responses.last_kwargs or {})
 
 
 if __name__ == "__main__":

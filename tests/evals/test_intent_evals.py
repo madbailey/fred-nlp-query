@@ -25,6 +25,14 @@ class EvalResult:
     passed: bool
     details: str
 
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "query": self.query,
+            "passed": self.passed,
+            "details": self.details,
+        }
+
 
 def _load_cases() -> list[dict[str, Any]]:
     return json.loads(_CASE_PATH.read_text(encoding="utf-8"))
@@ -105,6 +113,15 @@ def _assert_search_expectations(intent: QueryIntent, expect: dict[str, Any]) -> 
             failures.append(
                 "combined search text missing fragments "
                 f"{missing!r}; actual={_combined_search_text(intent)!r}"
+            )
+
+    if "search_text_contains_any" in expect:
+        combined_search_text = _normalized_text(_combined_search_text(intent))
+        expected_fragments = expect["search_text_contains_any"]
+        if not any(_normalized_text(fragment) in combined_search_text for fragment in expected_fragments):
+            failures.append(
+                "combined search text missing any acceptable fragment "
+                f"{expected_fragments!r}; actual={_combined_search_text(intent)!r}"
             )
 
     if "search_texts_count" in expect and len(intent.search_texts) != expect["search_texts_count"]:
@@ -210,6 +227,30 @@ def _write_scorecard(
     print("\n".join(lines))
 
 
+def _write_json_scorecard(
+    request: pytest.FixtureRequest,
+    *,
+    model: str,
+    reasoning_effort: str,
+    results: list[EvalResult],
+) -> None:
+    output_path = request.config.getoption("--eval-results-out")
+    if not output_path:
+        return
+
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "model": model,
+        "reasoning_effort": reasoning_effort,
+        "passed": sum(1 for result in results if result.passed),
+        "total": len(results),
+        "pass_rate": (sum(1 for result in results if result.passed) / len(results)) if results else 0.0,
+        "results": [result.as_dict() for result in results],
+    }
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
 def _build_live_parser(request: pytest.FixtureRequest) -> tuple[OpenAIIntentParser, str, str]:
     get_settings.cache_clear()
     settings = get_settings()
@@ -235,6 +276,7 @@ def test_live_intent_eval_cases(request: pytest.FixtureRequest) -> None:
     parser, model, reasoning_effort = _build_live_parser(request)
     results = [_evaluate_case(parser, case) for case in _load_cases()]
     _write_scorecard(request, model=model, reasoning_effort=reasoning_effort, results=results)
+    _write_json_scorecard(request, model=model, reasoning_effort=reasoning_effort, results=results)
 
     failures = [result for result in results if not result.passed]
     if failures:

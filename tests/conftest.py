@@ -25,6 +25,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="Override the OpenAI reasoning effort used by live intent evals.",
     )
+    group.addoption(
+        "--eval-results-out",
+        action="store",
+        default=None,
+        help="Optional path to write a JSON scorecard for a live intent eval run.",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
