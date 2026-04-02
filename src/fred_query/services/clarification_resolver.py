@@ -268,7 +268,7 @@ class ClarificationResolver:
         return _ClarificationQueryFeatures(
             normalized_text=normalized,
             wants_real=cls._has_real_signal(normalized),
-            wants_nominal=cls._text_has_any(normalized, cls._NOMINAL_TERMS),
+            wants_nominal=cls._has_nominal_signal(normalized),
             wants_growth_rate=cls._text_has_any(normalized, cls._GROWTH_RATE_TERMS),
             wants_per_capita=cls._text_has_any(normalized, cls._PER_CAPITA_TERMS),
             wants_market_based=cls._text_has_any(normalized, cls._MARKET_BASED_TERMS)
@@ -280,10 +280,11 @@ class ClarificationResolver:
     @lru_cache(maxsize=1024)
     def _extract_candidate_features_from_text(text: str) -> _ClarificationCandidateFeatures:
         has_growth_rate = ClarificationResolver._text_has_any(text, ClarificationResolver._GROWTH_RATE_TERMS)
+        has_real = ClarificationResolver._has_real_signal(text)
         return _ClarificationCandidateFeatures(
             normalized_text=text,
-            has_real=ClarificationResolver._has_real_signal(text),
-            has_nominal=ClarificationResolver._text_has_any(text, ClarificationResolver._NOMINAL_TERMS),
+            has_real=has_real,
+            has_nominal=ClarificationResolver._has_nominal_signal(text, has_real=has_real),
             has_growth_rate=has_growth_rate,
             has_index_level="index" in text and not has_growth_rate,
             has_per_capita=ClarificationResolver._text_has_any(text, ClarificationResolver._PER_CAPITA_TERMS),
@@ -316,6 +317,16 @@ class ClarificationResolver:
         if re.search(r"\breal\b", text) is not None:
             return True
         return re.search(r"\bchained\b.+\bdollar", text) is not None
+
+    @classmethod
+    def _has_nominal_signal(cls, text: str, *, has_real: bool | None = None) -> bool:
+        if cls._text_has_any(text, cls._NOMINAL_TERMS):
+            return True
+        if has_real is None:
+            has_real = cls._has_real_signal(text)
+        if has_real:
+            return False
+        return re.search(r"\bdollars?\b", text) is not None
 
     @staticmethod
     def _candidate_is_seasonally_adjusted(candidate: SeriesSearchMatch) -> bool | None:
