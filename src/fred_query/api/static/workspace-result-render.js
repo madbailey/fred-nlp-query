@@ -3,6 +3,7 @@ import { renderDashboardMarkup } from "./workspace-dashboard-templates.js";
 import {
     escapeHtml,
     formatDate,
+    formatFrequencyLabel,
     formatPercent,
     formatValue,
     humanize,
@@ -221,19 +222,6 @@ export function createResultRenderer(elements) {
         );
     }
 
-    function formatCandidateFrequency(value) {
-        const normalized = (value || "").toUpperCase();
-        return {
-            D: "Daily",
-            W: "Weekly",
-            BW: "Biweekly",
-            M: "Monthly",
-            Q: "Quarterly",
-            SA: "Semiannual",
-            A: "Annual",
-        }[normalized] || null;
-    }
-
     function formatCandidateUnits(value) {
         const normalized = (value || "").toLowerCase();
         if (!normalized) {
@@ -281,7 +269,7 @@ export function createResultRenderer(elements) {
         }
 
         const badges = [];
-        const frequencyBadge = formatCandidateFrequency(item.frequency);
+        const frequencyBadge = formatFrequencyLabel(item.frequency) || null;
         const unitBadge = formatCandidateUnits(item.units);
         if (frequencyBadge) {
             badges.push(frequencyBadge);

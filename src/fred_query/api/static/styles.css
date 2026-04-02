@@ -730,7 +730,7 @@ h1 {
 
 .dashboard-latest-value {
     margin: 0;
-    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-family: "Space Mono", monospace;
     font-size: clamp(34px, 4.6vw, 52px);
     line-height: 0.95;
     letter-spacing: -0.04em;
@@ -907,8 +907,9 @@ h1 {
 .dashboard-pair-label,
 .dashboard-ranking-rank {
     margin: 0;
-    font-family: "Space Mono", monospace;
+    font-family: "Doto", monospace;
     font-size: 11px;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-secondary);

@@ -1,5 +1,6 @@
 import {
     formatDate,
+    formatFrequencyLabel,
     formatPercent,
     formatValue,
     humanize,
@@ -12,16 +13,6 @@ const TASK_TYPES = {
     STATE_COMPARISON: "state_gdp_comparison",
     MULTI_SERIES: "multi_series_comparison",
     RELATIONSHIP: "relationship_analysis",
-};
-
-const FREQUENCY_LABELS = {
-    D: "Daily",
-    W: "Weekly",
-    BW: "Biweekly",
-    M: "Monthly",
-    Q: "Quarterly",
-    SA: "Semiannual",
-    A: "Annual",
 };
 
 const CROSS_SECTION_SCOPE_LABELS = {
@@ -141,10 +132,6 @@ function toOrdinal(value) {
 function extractDateFromDescription(description) {
     const match = (description || "").match(/(\d{4}-\d{2}-\d{2})/);
     return match?.[1] || null;
-}
-
-function formatFrequency(frequency) {
-    return FREQUENCY_LABELS[(frequency || "").toUpperCase()] || frequency || "";
 }
 
 function formatCoverage(analysis) {
@@ -395,7 +382,7 @@ function buildDetails(result, analysis, metrics) {
     const basisMetric = getMetric(metrics, "analysis_basis");
     return [
         { label: "Series", value: result.series.series_id },
-        { label: "Frequency", value: formatFrequency(result.series.frequency) || result.series.frequency },
+        { label: "Frequency", value: formatFrequencyLabel(result.series.frequency) || result.series.frequency },
         result.series.seasonal_adjustment ? { label: "Adjustment", value: result.series.seasonal_adjustment } : null,
         latestUnits ? { label: "Units", value: truncateText(latestUnits, 28) } : null,
         {
@@ -449,7 +436,7 @@ function buildSingleSeriesDashboardModel(response) {
         title: result.series.title,
         badges: [
             result.series.series_id,
-            formatFrequency(result.series.frequency) || result.series.frequency,
+            formatFrequencyLabel(result.series.frequency) || result.series.frequency,
             result.series.seasonal_adjustment,
         ].filter(Boolean),
         latest: {

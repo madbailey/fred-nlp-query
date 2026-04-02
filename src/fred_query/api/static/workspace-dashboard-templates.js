@@ -189,33 +189,9 @@ function renderSingleSeriesDashboard(model) {
     `;
 }
 
-function renderComparisonDashboard(model) {
+function renderPairedSeriesDashboard(model) {
     return `
-        <div class="dashboard-shell dashboard-shell-comparison">
-            <section class="dashboard-hero">
-                ${renderSummary(model.summary, {
-                    headline: `
-                        <div class="dashboard-badge-row">
-                            ${model.badges.map((badge) => `<span class="badge">${escapeHtml(badge)}</span>`).join("")}
-                        </div>
-                        <p class="dashboard-headline">${escapeHtml(model.title)}</p>
-                    `,
-                })}
-                ${renderHeroStats(model.heroStats)}
-            </section>
-
-            ${renderPairCards(model.pairCards)}
-            ${renderInsight(model.insight)}
-            ${renderWarnings(model.warnings)}
-            ${renderActions(model.actions)}
-            ${renderDetails(model.details)}
-        </div>
-    `;
-}
-
-function renderPairAnalysisDashboard(model) {
-    return `
-        <div class="dashboard-shell dashboard-shell-pair-analysis">
+        <div class="dashboard-shell">
             <section class="dashboard-hero">
                 ${renderSummary(model.summary, {
                     headline: `
@@ -271,11 +247,11 @@ export function renderDashboardMarkup(model) {
     }
 
     if (model.mode === "comparison") {
-        return renderComparisonDashboard(model);
+        return renderPairedSeriesDashboard(model);
     }
 
     if (model.mode === "pair_analysis") {
-        return renderPairAnalysisDashboard(model);
+        return renderPairedSeriesDashboard(model);
     }
 
     if (model.mode === "cross_section") {
