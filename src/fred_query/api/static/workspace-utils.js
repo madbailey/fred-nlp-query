@@ -6,6 +6,16 @@ export const STATUS_LABELS = {
     failed: "Failed",
 };
 
+export const FREQUENCY_LABELS = {
+    D: "Daily",
+    W: "Weekly",
+    BW: "Biweekly",
+    M: "Monthly",
+    Q: "Quarterly",
+    SA: "Semiannual",
+    A: "Annual",
+};
+
 export function humanize(value) {
     if (!value) {
         return "";
@@ -71,6 +81,11 @@ export function formatPercent(value) {
     }
 
     return `${formatValue(value)}%`;
+}
+
+export function formatFrequencyLabel(value) {
+    const normalized = (value || "").toUpperCase();
+    return FREQUENCY_LABELS[normalized] || value || "";
 }
 
 export function formatRevisionStatus(status) {

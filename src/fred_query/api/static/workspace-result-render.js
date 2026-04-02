@@ -1,6 +1,9 @@
+import { buildDashboardModel } from "./workspace-dashboard-model.js";
+import { renderDashboardMarkup } from "./workspace-dashboard-templates.js";
 import {
     escapeHtml,
     formatDate,
+    formatFrequencyLabel,
     formatPercent,
     formatValue,
     humanize,
@@ -9,6 +12,10 @@ import {
 export function createResultRenderer(elements) {
     const {
         results,
+        dashboardPanel,
+        dashboardBody,
+        summaryGrid,
+        detailGrid,
         answerText,
         intentSummary,
         warningList,
@@ -37,7 +44,8 @@ export function createResultRenderer(elements) {
 
     function clearResultCanvas() {
         setHidden(results, true);
-        answerText.textContent = "";
+        dashboardBody.innerHTML = "";
+        answerText.innerHTML = "";
         intentSummary.innerHTML = "";
         warningList.innerHTML = "";
         followUpList.innerHTML = "";
@@ -48,13 +56,76 @@ export function createResultRenderer(elements) {
         setHidden(chartSubtitle, true);
         sourceNote.textContent = "";
         setHidden(sourceNote, true);
+        chartPanel.classList.remove("is-dashboard-mode");
+        setHidden(dashboardPanel, true);
+        setHidden(summaryGrid, false);
+        setHidden(detailGrid, true);
         setHidden(chartPanel, true);
         setHidden(metricsPanel, true);
         setHidden(seriesPanel, true);
         setHidden(followUpPanel, true);
+        results.classList.remove("has-metrics", "has-series", "has-follow-ups");
         if (window.Plotly) {
             window.Plotly.purge(chartElement);
         }
+    }
+
+    function clearDashboardPanel() {
+        dashboardBody.innerHTML = "";
+        setHidden(dashboardPanel, true);
+        setHidden(summaryGrid, false);
+    }
+
+    function renderDashboard(model) {
+        dashboardBody.innerHTML = renderDashboardMarkup(model);
+        setHidden(dashboardPanel, false);
+        setHidden(summaryGrid, true);
+        setHidden(detailGrid, true);
+    }
+
+    function syncDetailGridVisibility() {
+        const hasVisibleDetailPanel = !seriesPanel.classList.contains("hidden") || !followUpPanel.classList.contains("hidden");
+        setHidden(detailGrid, !hasVisibleDetailPanel);
+    }
+
+    function splitAnswerText(rawText) {
+        const normalized = (rawText || "").replace(/\s+/g, " ").trim();
+        if (!normalized) {
+            return { lead: "", support: [], footnote: "" };
+        }
+
+        const sentences = normalized
+            .split(/(?<=[.!?])\s+(?=[A-Z0-9])/g)
+            .map((sentence) => sentence.trim())
+            .filter(Boolean);
+        let footnote = "";
+        const content = [];
+
+        for (const sentence of sentences) {
+            if (!footnote && /^Series used:/i.test(sentence)) {
+                footnote = sentence;
+                continue;
+            }
+            content.push(sentence);
+        }
+
+        const [lead = "", ...support] = content;
+        return { lead, support, footnote };
+    }
+
+    function renderAnswer(rawText) {
+        const { lead, support, footnote } = splitAnswerText(rawText);
+        answerText.innerHTML = [
+            lead ? `<p class="answer-lead">${escapeHtml(lead)}</p>` : "",
+            support.length
+                ? `
+                    <div class="answer-support">
+                        ${support.map((sentence) => `<p>${escapeHtml(sentence)}</p>`).join("")}
+                    </div>
+                `
+                : "",
+            footnote ? `<p class="answer-footnote">${escapeHtml(footnote)}</p>` : "",
+        ].join("");
     }
 
     function extractChartTitle(response, figure) {
@@ -151,19 +222,6 @@ export function createResultRenderer(elements) {
         );
     }
 
-    function formatCandidateFrequency(value) {
-        const normalized = (value || "").toUpperCase();
-        return {
-            D: "Daily",
-            W: "Weekly",
-            BW: "Biweekly",
-            M: "Monthly",
-            Q: "Quarterly",
-            SA: "Semiannual",
-            A: "Annual",
-        }[normalized] || null;
-    }
-
     function formatCandidateUnits(value) {
         const normalized = (value || "").toLowerCase();
         if (!normalized) {
@@ -211,7 +269,7 @@ export function createResultRenderer(elements) {
         }
 
         const badges = [];
-        const frequencyBadge = formatCandidateFrequency(item.frequency);
+        const frequencyBadge = formatFrequencyLabel(item.frequency) || null;
         const unitBadge = formatCandidateUnits(item.units);
         if (frequencyBadge) {
             badges.push(frequencyBadge);
@@ -267,9 +325,15 @@ export function createResultRenderer(elements) {
     }
 
     function renderFollowUpSuggestions(suggestions, { hideFollowUps = false } = {}) {
-        if (hideFollowUps || !Array.isArray(suggestions) || suggestions.length === 0) {
+        const hasSuggestions = !hideFollowUps
+            && Array.isArray(suggestions)
+            && suggestions.some((suggestion) => Boolean(typeof suggestion === "string" ? suggestion : suggestion?.query));
+        results.classList.toggle("has-follow-ups", hasSuggestions);
+
+        if (!hasSuggestions) {
             followUpList.innerHTML = "";
             setHidden(followUpPanel, true);
+            syncDetailGridVisibility();
             return;
         }
 
@@ -293,9 +357,44 @@ export function createResultRenderer(elements) {
             })
             .join("");
         setHidden(followUpPanel, false);
+        syncDetailGridVisibility();
+    }
+
+    function formatMetricMeta(metric) {
+        const rawDescription = (metric.description || "").trim();
+        if (!rawDescription) {
+            return "";
+        }
+
+        if (metric.name === "top_search_match") {
+            return "Selected series";
+        }
+
+        const spanMatch = rawDescription.match(/Average across ([\d,]+) observations from (\d{4})-\d{2}-\d{2} to (\d{4})-\d{2}-\d{2}\.?/i);
+        if (metric.name === "historical_average" && spanMatch) {
+            return `${spanMatch[1]} obs | ${spanMatch[2]}-${spanMatch[3]}`;
+        }
+
+        if (metric.name === "historical_percentile_rank") {
+            return "Latest reading vs history";
+        }
+
+        const extremumMatch = rawDescription.match(/reached on (\d{4}-\d{2}-\d{2})/i);
+        if (metric.name === "historical_peak" && extremumMatch) {
+            return `Peak on ${formatDate(extremumMatch[1])}`;
+        }
+
+        if (metric.name === "historical_trough" && extremumMatch) {
+            return `Low on ${formatDate(extremumMatch[1])}`;
+        }
+
+        return rawDescription;
     }
 
     function renderDerivedMetrics(metrics) {
+        const hasMetrics = Array.isArray(metrics) && metrics.length > 0;
+        results.classList.toggle("has-metrics", hasMetrics);
+
         if (!metrics || metrics.length === 0) {
             metricsGrid.innerHTML = "";
             setHidden(metricsPanel, true);
@@ -306,11 +405,12 @@ export function createResultRenderer(elements) {
             .map((metric) => {
                 const unit = metric.unit ? ` ${escapeHtml(metric.unit)}` : "";
                 const label = metric.label || humanize(metric.name);
+                const meta = formatMetricMeta(metric);
                 return `
                     <article class="metric-card">
                         <p class="metric-card-label">${escapeHtml(label)}</p>
                         <p class="metric-card-value">${escapeHtml(formatValue(metric.value))}${unit}</p>
-                        ${metric.description ? `<p class="metric-card-description">${escapeHtml(metric.description)}</p>` : ""}
+                        ${meta ? `<p class="metric-card-description">${escapeHtml(meta)}</p>` : ""}
                     </article>
                 `;
             })
@@ -318,15 +418,37 @@ export function createResultRenderer(elements) {
         setHidden(metricsPanel, false);
     }
 
-    function renderChart(figure, response) {
+    function getThemeColors() {
+        const style = getComputedStyle(document.documentElement);
+        return {
+            textPrimary: style.getPropertyValue("--text-primary").trim(),
+            textSecondary: style.getPropertyValue("--text-secondary").trim(),
+            textDisplay: style.getPropertyValue("--text-display").trim(),
+            textDisabled: style.getPropertyValue("--text-disabled").trim(),
+            border: style.getPropertyValue("--border").trim(),
+            borderVisible: style.getPropertyValue("--border-visible").trim(),
+            surface: style.getPropertyValue("--surface").trim(),
+            black: style.getPropertyValue("--black").trim(),
+        };
+    }
+
+    function renderChart(figure, response, { compact = false } = {}) {
         if (!figure || !window.Plotly) {
             setHidden(chartPanel, true);
             return;
         }
 
+        chartPanel.classList.toggle("is-dashboard-mode", compact);
+        const theme = getThemeColors();
         const chartTitleText = extractChartTitle(response, figure);
         const chartSubtitleText = extractChartSubtitle(response, figure);
-        const data = (figure.data || []).map((trace) => ({ ...trace }));
+        const data = (figure.data || []).map((trace) => ({
+            ...trace,
+            line: trace.type === "scatter" || !trace.type ? {
+                ...trace.line,
+                width: trace.line?.width || 2,
+            } : trace.line,
+        }));
         const spanYears = getTimeSeriesSpanYears(data);
         const showRangeControls = spanYears >= 4;
         const showLegend = data.length > 1;
@@ -347,45 +469,48 @@ export function createResultRenderer(elements) {
                 l: 64,
                 r: 18,
                 t: 20,
-                b: showRangeControls ? 118 : (showLegend ? 86 : 56),
+                b: showRangeControls && showLegend ? 150 : showRangeControls ? 118 : (showLegend ? 86 : 56),
             },
             font: {
-                family: '"IBM Plex Sans", "Segoe UI", sans-serif',
-                color: "#15212f",
+                family: '"Space Grotesk", "DM Sans", system-ui, sans-serif',
+                color: theme.textPrimary,
             },
             showlegend: showLegend,
             hoverlabel: {
-                bgcolor: "#ffffff",
-                bordercolor: "rgba(21, 33, 47, 0.16)",
+                bgcolor: theme.surface,
+                bordercolor: theme.borderVisible,
                 font: {
-                    family: '"IBM Plex Sans", "Segoe UI", sans-serif',
-                    color: "#15212f",
+                    family: '"Space Mono", monospace',
+                    color: theme.textPrimary,
                 },
                 namelength: 56,
             },
             legend: showLegend ? {
                 orientation: "h",
                 yanchor: "top",
-                y: -0.2,
+                y: showRangeControls ? -0.35 : -0.2,
                 xanchor: "left",
                 x: 0,
                 font: {
-                    size: 12,
-                    color: "#435365",
+                    family: '"Space Mono", monospace',
+                    size: 11,
+                    color: theme.textSecondary,
                 },
             } : undefined,
             annotations: removeSubtitleAnnotation(figure.layout?.annotations, chartSubtitleText),
             xaxis: {
                 ...figure.layout?.xaxis,
-                gridcolor: "rgba(21, 33, 47, 0.08)",
+                gridcolor: theme.border,
                 zeroline: false,
                 automargin: true,
                 showspikes: true,
                 spikemode: "across",
-                spikecolor: "rgba(21, 33, 47, 0.16)",
+                spikecolor: theme.borderVisible,
                 spikethickness: 1,
                 tickfont: {
-                    color: "#435365",
+                    family: '"Space Mono", monospace',
+                    size: 11,
+                    color: theme.textSecondary,
                 },
                 tickformatstops: showRangeControls ? [
                     { dtickrange: [null, 86400000 * 31], value: "%b %Y" },
@@ -397,26 +522,33 @@ export function createResultRenderer(elements) {
                     y: 1.14,
                     xanchor: "left",
                     yanchor: "bottom",
-                    bgcolor: "rgba(255, 255, 255, 0.94)",
-                    activecolor: "rgba(13, 115, 119, 0.14)",
-                    bordercolor: "rgba(21, 33, 47, 0.1)",
+                    bgcolor: theme.surface,
+                    activecolor: theme.borderVisible,
+                    bordercolor: theme.border,
                     borderwidth: 1,
+                    font: {
+                        family: '"Space Mono", monospace',
+                        size: 11,
+                        color: theme.textSecondary,
+                    },
                     buttons: buildRangeSelectorButtons(spanYears),
                 } : undefined,
                 rangeslider: showRangeControls ? {
                     visible: true,
-                    bgcolor: "rgba(21, 33, 47, 0.04)",
-                    bordercolor: "rgba(21, 33, 47, 0.1)",
+                    bgcolor: theme.black,
+                    bordercolor: theme.border,
                     thickness: 0.1,
                 } : { visible: false },
             },
             yaxis: {
                 ...figure.layout?.yaxis,
-                gridcolor: "rgba(21, 33, 47, 0.08)",
+                gridcolor: theme.border,
                 zeroline: false,
                 automargin: true,
                 tickfont: {
-                    color: "#435365",
+                    family: '"Space Mono", monospace',
+                    size: 11,
+                    color: theme.textSecondary,
                 },
             },
         };
@@ -442,9 +574,13 @@ export function createResultRenderer(elements) {
     }
 
     function renderSeriesResults(seriesResults) {
+        const hasSeries = Array.isArray(seriesResults) && seriesResults.length > 0;
+        results.classList.toggle("has-series", hasSeries);
+
         if (!seriesResults || seriesResults.length === 0) {
             setHidden(seriesPanel, true);
             seriesGrid.innerHTML = "";
+            syncDetailGridVisibility();
             return;
         }
 
@@ -502,6 +638,7 @@ export function createResultRenderer(elements) {
             })
             .join("");
         setHidden(seriesPanel, false);
+        syncDetailGridVisibility();
     }
 
     function renderResultPayload(response, options = {}) {
@@ -511,13 +648,31 @@ export function createResultRenderer(elements) {
         }
 
         setHidden(results, false);
-        answerText.textContent = response.answer_text || "";
+        const dashboardModel = buildDashboardModel(response);
+        if (dashboardModel) {
+            renderDashboard(dashboardModel);
+            metricsGrid.innerHTML = "";
+            seriesGrid.innerHTML = "";
+            followUpList.innerHTML = "";
+            warningList.innerHTML = "";
+            intentSummary.innerHTML = "";
+            setHidden(metricsPanel, true);
+            setHidden(seriesPanel, true);
+            setHidden(followUpPanel, true);
+            renderChart(response.plotly_figure, response, { compact: true });
+            return;
+        }
+
+        clearDashboardPanel();
+        setHidden(summaryGrid, false);
+        renderAnswer(response.answer_text || "");
         renderIntent(response.intent || {});
         renderWarnings(response.result?.analysis?.warnings || []);
         renderFollowUpSuggestions(response.follow_up_suggestions || [], options);
         renderDerivedMetrics(response.result?.analysis?.derived_metrics || []);
-        renderChart(response.plotly_figure, response);
+        renderChart(response.plotly_figure, response, { compact: false });
         renderSeriesResults(response.result?.analysis?.series_results || []);
+        syncDetailGridVisibility();
     }
 
     function clearClarificationPanel() {
@@ -584,7 +739,7 @@ export function createResultRenderer(elements) {
     }
 
     function getFollowUpButtons() {
-        return Array.from(followUpList.querySelectorAll(".follow-up-suggestion"));
+        return Array.from(results.querySelectorAll(".follow-up-suggestion"));
     }
 
     return {

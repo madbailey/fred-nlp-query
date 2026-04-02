@@ -39,6 +39,10 @@ export function mountWorkspaceApp() {
         statusText: document.getElementById("status-text"),
         errorBanner: document.getElementById("error-banner"),
         results: document.getElementById("results"),
+        dashboardPanel: document.getElementById("dashboard-panel"),
+        dashboardBody: document.getElementById("dashboard-body"),
+        summaryGrid: document.getElementById("summary-grid"),
+        detailGrid: document.getElementById("detail-grid"),
         answerText: document.getElementById("answer-text"),
         intentSummary: document.getElementById("intent-summary"),
         warningList: document.getElementById("warning-list"),
@@ -155,6 +159,12 @@ export function mountWorkspaceApp() {
         return workspace.revisions[workspace.revisions.length - 1] || null;
     }
 
+    function getLatestCompletedRevision() {
+        return [...workspace.revisions]
+            .reverse()
+            .find((revision) => revision.response?.status === "completed" && revision.response?.result) || null;
+    }
+
     function getActiveRevision() {
         return findRevisionById(workspace.activeRevisionId) || getLatestRevision();
     }
@@ -172,6 +182,21 @@ export function mountWorkspaceApp() {
             current = findRevisionById(current.baseRevisionId);
         }
         return null;
+    }
+
+    function deriveWorkspaceTitle() {
+        const source = getLatestCompletedRevision() || getLatestRevision();
+        return truncateText(source?.label || source?.prompt || "New workspace", 44);
+    }
+
+    function deriveWorkspaceSubtitle() {
+        const latestRevision = getLatestRevision();
+        const revisionCount = workspace.revisions.length;
+        const revisionLabel = `${revisionCount} ${revisionCount === 1 ? "revision" : "revisions"}`;
+        const taskLabel = latestRevision?.response?.intent?.task_type
+            ? humanize(latestRevision.response.intent.task_type)
+            : null;
+        return taskLabel ? `${revisionLabel} | ${taskLabel}` : revisionLabel;
     }
 
     function updateStatus(state, message) {
@@ -257,7 +282,7 @@ export function mountWorkspaceApp() {
         const activeIndex = getRevisionIndex(activeRevision.id) + 1;
         const latestRevision = getLatestRevision();
         elements.activeResultTitle.textContent = activeRevision.label;
-        elements.activeResultMeta.textContent = `Revision ${activeIndex} of ${workspace.revisions.length} · ${formatRevisionStatus(activeRevision.status)}${activeRevision.response?.intent?.task_type ? ` · ${humanize(activeRevision.response.intent.task_type)}` : ""}`;
+        elements.activeResultMeta.textContent = `Revision ${activeIndex} of ${workspace.revisions.length} | ${formatRevisionStatus(activeRevision.status)}${activeRevision.response?.intent?.task_type ? ` | ${humanize(activeRevision.response.intent.task_type)}` : ""}`;
         if (activeRevision.response?.status === "needs_clarification" && referenceRevision) {
             elements.workspaceContextBanner.textContent = "Showing the previous result while this revision needs clarification.";
             setHidden(elements.workspaceContextBanner, false);
@@ -302,8 +327,8 @@ export function mountWorkspaceApp() {
 
         const activeRevision = getActiveRevision();
         if (hasWorkspace) {
-            elements.workspaceTitle.textContent = workspace.title || truncateText(workspace.revisions[0].label || workspace.revisions[0].prompt, 48);
-            elements.workspaceSubtitle.textContent = `${workspace.revisions.length} ${workspace.revisions.length === 1 ? "revision" : "revisions"} · Latest prompt: ${truncateText(getLatestRevision()?.prompt || "", 52)}`;
+            elements.workspaceTitle.textContent = deriveWorkspaceTitle();
+            elements.workspaceSubtitle.textContent = deriveWorkspaceSubtitle();
             renderRevisionList();
             renderActiveRevision();
             if (activeRevision && getLatestRevision()?.id !== activeRevision.id) {
@@ -381,7 +406,7 @@ export function mountWorkspaceApp() {
                 workspace.revisions.push(revision);
             }
             workspace.activeRevisionId = revision.id;
-            workspace.title = workspace.title || truncateText(workspace.revisions[0].label || workspace.revisions[0].prompt, 48);
+            workspace.title = deriveWorkspaceTitle();
             saveWorkspace();
             selectedClarificationSeriesId = null;
             if (payload.status !== "needs_clarification") {
@@ -462,7 +487,7 @@ export function mountWorkspaceApp() {
             replaceRevisionId: activeRevision.id,
         });
     });
-    elements.followUpList.addEventListener("click", (event) => {
+    elements.results.addEventListener("click", (event) => {
         const button = event.target.closest(".follow-up-suggestion");
         if (!button || isLoading) {
             return;
@@ -474,6 +499,8 @@ export function mountWorkspaceApp() {
         selectedClarificationSeriesId = null;
         renderApp();
     });
+
+    window.addEventListener("themechange", () => renderApp());
 
     renderApp();
 }
