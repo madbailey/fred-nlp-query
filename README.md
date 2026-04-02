@@ -2,7 +2,7 @@
 
 `fred-query` is a Python app for asking plain-English questions about FRED data and turning them into structured queries, charts, and summaries.
 
-![FRED Query home screen](https://github.com/user-attachments/assets/aabaf2d7-ee42-4087-a9fe-b3478e67c464)
+<img width="1128" height="602" alt="image" src="https://github.com/user-attachments/assets/e1ed907d-1adf-45d4-8830-4bdaea4ba721" />
 
 This repo includes:
 
