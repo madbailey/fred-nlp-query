@@ -207,6 +207,59 @@ class _SingleSeriesClarificationFREDClient:
         ]
 
 
+class _LeakyMarketBasedClarificationFREDClient:
+    def search_series(self, search_text: str, limit: int = 5) -> list[SeriesSearchMatch]:
+        lowered = search_text.lower()
+        if "cpi" in lowered:
+            return [
+                SeriesSearchMatch(
+                    series_id="CPIAUCSL",
+                    title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                    units="Index 1982-1984=100",
+                    frequency="M",
+                    popularity=95,
+                    source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+                )
+            ]
+        if "pce" in lowered:
+            return [
+                SeriesSearchMatch(
+                    series_id="PCEPI",
+                    title="Personal Consumption Expenditures: Chain-type Price Index",
+                    units="Index 2017=100",
+                    frequency="M",
+                    popularity=88,
+                    source_url="https://fred.stlouisfed.org/series/PCEPI",
+                )
+            ]
+        return [
+            SeriesSearchMatch(
+                series_id="T10YIE",
+                title="10-Year Breakeven Inflation Rate",
+                units="Percent",
+                frequency="D",
+                popularity=100,
+                source_url="https://fred.stlouisfed.org/series/T10YIE",
+            ),
+            SeriesSearchMatch(
+                series_id="PCEPI",
+                title="Personal Consumption Expenditures: Chain-type Price Index",
+                units="Index 2017=100",
+                frequency="M",
+                popularity=88,
+                source_url="https://fred.stlouisfed.org/series/PCEPI",
+            ),
+            SeriesSearchMatch(
+                series_id="CPIAUCSL",
+                title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                units="Index 1982-1984=100",
+                frequency="M",
+                popularity=95,
+                source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+            ),
+        ]
+
+
 class ClarificationResolverTest(unittest.TestCase):
     def test_build_candidates_prioritizes_examples_and_dedupes_variants(self) -> None:
         resolver = ClarificationResolver(_CrowdedInflationClarificationFREDClient())
@@ -361,6 +414,54 @@ class ClarificationResolverTest(unittest.TestCase):
         )
 
         self.assertEqual(resolver.build_candidates(intent), [])
+
+    def test_candidate_is_seasonally_adjusted_treats_saar_as_adjusted(self) -> None:
+        candidate = SeriesSearchMatch(
+            series_id="GDP",
+            title="Gross Domestic Product",
+            units="Billions of Current Dollars",
+            frequency="Q",
+            seasonal_adjustment="SAAR",
+            source_url="https://fred.stlouisfed.org/series/GDP",
+        )
+
+        self.assertTrue(ClarificationResolver._candidate_is_seasonally_adjusted(candidate))
+
+    def test_build_candidates_does_not_leak_market_based_terms_from_other_targets(self) -> None:
+        resolver = ClarificationResolver(_LeakyMarketBasedClarificationFREDClient())
+        intent = QueryIntent(
+            task_type=TaskType.RELATIONSHIP_ANALYSIS,
+            comparison_mode=ComparisonMode.RELATIONSHIP,
+            original_query="What is the relationship between 10-year Treasury yields and inflation?",
+            clarification_needed=True,
+            clarification_target_index=1,
+            clarification_question="Which inflation series should I use: CPI inflation, PCE inflation, or another inflation measure?",
+            search_texts=["10-year Treasury yield", "inflation united states"],
+        )
+
+        candidates = resolver.build_candidates(intent)
+
+        self.assertEqual(
+            [candidate.series_id for candidate in candidates[:2]],
+            ["CPIAUCSL", "PCEPI"],
+        )
+        self.assertNotEqual(candidates[0].selection_label, "Market Inflation Expectations")
+
+    def test_selection_hint_does_not_treat_plain_treasury_series_as_inflation_expectations(self) -> None:
+        candidate = SeriesSearchMatch(
+            series_id="GS10",
+            title="10-Year Treasury Constant Maturity Rate",
+            units="Percent",
+            frequency="D",
+            source_url="https://fred.stlouisfed.org/series/GS10",
+        )
+
+        hint = ClarificationResolver._selection_hint_for_candidate(candidate, search_text="treasury yield")
+        label = ClarificationResolver._selection_label_for_candidate(candidate)
+
+        self.assertNotIn("market-implied inflation expectation", hint)
+        self.assertIn("data reported in percent", hint)
+        self.assertIsNone(label)
 
 
 if __name__ == "__main__":

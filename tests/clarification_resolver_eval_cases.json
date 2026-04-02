@@ -290,5 +290,73 @@
         "nominal/current-dollar version"
       ]
     }
+  },
+  {
+    "id": "multi_series_context_does_not_leak_treasury_terms_into_inflation_target",
+    "intent": {
+      "task_type": "relationship_analysis",
+      "comparison_mode": "relationship",
+      "original_query": "What is the relationship between 10-year Treasury yields and inflation?",
+      "clarification_needed": true,
+      "clarification_target_index": 1,
+      "clarification_question": "Which inflation series should I use: CPI inflation, PCE inflation, or another inflation measure?",
+      "search_texts": ["10-year Treasury yield", "inflation united states"]
+    },
+    "search_results": {
+      "cpi inflation": [
+        {
+          "series_id": "CPIAUCSL",
+          "title": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+          "units": "Index 1982-1984=100",
+          "frequency": "M",
+          "popularity": 95,
+          "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+        }
+      ],
+      "pce inflation": [
+        {
+          "series_id": "PCEPI",
+          "title": "Personal Consumption Expenditures: Chain-type Price Index",
+          "units": "Index 2017=100",
+          "frequency": "M",
+          "popularity": 88,
+          "source_url": "https://fred.stlouisfed.org/series/PCEPI"
+        }
+      ],
+      "inflation united states": [
+        {
+          "series_id": "T10YIE",
+          "title": "10-Year Breakeven Inflation Rate",
+          "units": "Percent",
+          "frequency": "D",
+          "popularity": 100,
+          "source_url": "https://fred.stlouisfed.org/series/T10YIE"
+        },
+        {
+          "series_id": "PCEPI",
+          "title": "Personal Consumption Expenditures: Chain-type Price Index",
+          "units": "Index 2017=100",
+          "frequency": "M",
+          "popularity": 88,
+          "source_url": "https://fred.stlouisfed.org/series/PCEPI"
+        },
+        {
+          "series_id": "CPIAUCSL",
+          "title": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+          "units": "Index 1982-1984=100",
+          "frequency": "M",
+          "popularity": 95,
+          "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+        }
+      ]
+    },
+    "expect": {
+      "series_ids": ["CPIAUCSL", "PCEPI"],
+      "selection_labels": ["Headline CPI", "Headline PCE"],
+      "selection_hints_contain": [
+        "Pick this if you want CPI",
+        "Pick this if you want PCE"
+      ]
+    }
   }
 ]

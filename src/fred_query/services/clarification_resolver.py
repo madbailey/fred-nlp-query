@@ -226,22 +226,17 @@ class ClarificationResolver:
             if normalized and normalized not in search_variants:
                 search_variants.append(normalized)
 
+        context_texts = cls._context_texts_for_intent(
+            intent,
+            search_text=search_text,
+            example_searches=example_searches,
+        )
         anchor_terms = cls._significant_terms(
-            [
-                intent.original_query or "",
-                intent.clarification_question or "",
-                search_text,
-                *example_searches,
-            ]
+            context_texts
         )
         query_text = " ".join(
             part
-            for part in [
-                intent.original_query or "",
-                intent.clarification_question or "",
-                search_text,
-                *example_searches,
-            ]
+            for part in context_texts
             if part
         )
         return _ClarificationContext(
@@ -255,6 +250,23 @@ class ClarificationResolver:
     @classmethod
     def _text_has_any(cls, text: str, terms: tuple[str, ...]) -> bool:
         return any(term in text for term in terms)
+
+    @classmethod
+    def _context_texts_for_intent(
+        cls,
+        intent: QueryIntent,
+        *,
+        search_text: str,
+        example_searches: list[str],
+    ) -> list[str]:
+        texts = [
+            intent.clarification_question or "",
+            search_text,
+            *example_searches,
+        ]
+        if intent.task_type not in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS):
+            texts.insert(0, intent.original_query or "")
+        return texts
 
     @classmethod
     def _extract_query_features(cls, text: str) -> _ClarificationQueryFeatures:
@@ -335,7 +347,7 @@ class ClarificationResolver:
             return None
         if "not seasonally adjusted" in adjustment or adjustment == "nsa":
             return False
-        if "seasonally adjusted" in adjustment or adjustment == "sa":
+        if "seasonally adjusted" in adjustment or adjustment in {"sa", "saar"}:
             return True
         return None
 
@@ -691,7 +703,7 @@ class ClarificationResolver:
             return "Pick this if you want PCE inflation, the consumption-based price measure the Fed often references."
         if candidate_features.has_cpi:
             return "Pick this if you want CPI, the broad consumer inflation measure most people mean by 'inflation'."
-        if candidate_features.has_market_based_signal or candidate_features.has_instrument_terms:
+        if candidate_features.has_market_based_signal:
             return "Pick this if you want a market-implied inflation expectation from Treasury pricing, not a realized inflation index."
         if candidate_features.has_ppi:
             return "Pick this if you want producer-price inflation rather than consumer inflation."
@@ -764,7 +776,7 @@ class ClarificationResolver:
             return "Headline PCE"
         if candidate_features.has_cpi:
             return "Headline CPI"
-        if candidate_features.has_market_based_signal or candidate_features.has_instrument_terms:
+        if candidate_features.has_market_based_signal:
             return "Market Inflation Expectations"
         if candidate_features.has_ppi:
             return "Producer Prices"
