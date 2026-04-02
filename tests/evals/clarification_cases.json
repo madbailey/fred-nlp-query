@@ -1,0 +1,64 @@
+[
+  {
+    "id": "employment_since_2020",
+    "query": "Show me employment since 2020",
+    "expect": {
+      "task_type": "single_series_lookup",
+      "search_text_contains_any": ["employment", "payroll"],
+      "start_date": "2020-01-01",
+      "clarification_needed": false
+    }
+  },
+  {
+    "id": "housing_since_2020",
+    "query": "Show me housing since 2020",
+    "expect": {
+      "task_type": "single_series_lookup",
+      "search_text_contains": "housing",
+      "start_date": "2020-01-01",
+      "clarification_needed": true,
+      "clarification_target_index": 0
+    }
+  },
+  {
+    "id": "nsa_unemployment_since_2020",
+    "query": "Show me the not seasonally adjusted unemployment rate since 2020",
+    "expect": {
+      "task_type": "single_series_lookup",
+      "search_text_contains": "unemployment",
+      "start_date": "2020-01-01",
+      "clarification_needed": false
+    }
+  },
+  {
+    "id": "real_personal_income_per_capita_since_2018",
+    "query": "Show me real personal income per capita since 2018",
+    "expect": {
+      "task_type": "single_series_lookup",
+      "search_text_contains_any": ["personal income", "per capita"],
+      "start_date": "2018-01-01",
+      "clarification_needed": false
+    }
+  },
+  {
+    "id": "compare_real_and_nominal_gdp_since_2015",
+    "query": "Compare real GDP and nominal GDP since 2015",
+    "expect": {
+      "task_type": "multi_series_comparison",
+      "search_texts_count": 2,
+      "search_texts_include": ["real gdp", "nominal gdp"],
+      "start_date": "2015-01-01",
+      "clarification_needed": false
+    }
+  },
+  {
+    "id": "house_prices_vs_mortgage_rates",
+    "query": "What is the relationship between house prices and mortgage rates since 2012?",
+    "expect": {
+      "task_type": "relationship_analysis",
+      "search_texts_count": 2,
+      "search_texts_include": ["house", "mortgage"],
+      "start_date": "2012-01-01"
+    }
+  }
+]
