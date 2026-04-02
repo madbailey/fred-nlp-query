@@ -111,31 +111,56 @@ function renderInsight(insight) {
     `;
 }
 
+function renderStoryLayout(insight, { includeChart = false } = {}) {
+    if (!insight && !includeChart) {
+        return "";
+    }
+
+    return `
+        <section class="dashboard-story-grid">
+            ${insight ? renderInsight(insight) : ""}
+            ${includeChart
+                ? `
+                    <div class="dashboard-chart-slot" data-dashboard-chart-slot aria-label="Chart region"></div>
+                `
+                : ""
+            }
+        </section>
+    `;
+}
+
 function renderPairCards(cards) {
     if (!cards?.length) {
         return "";
     }
 
     return `
-        <section class="dashboard-pair-grid" aria-label="Series snapshot">
-            ${cards.map((card) => `
-                <article class="dashboard-pair-card">
-                    <div class="dashboard-pair-header">
-                        <p class="dashboard-pair-label">${escapeHtml(card.label)}</p>
-                        <p class="dashboard-pair-title">${escapeHtml(card.title)}</p>
-                    </div>
-                    <p class="dashboard-pair-value">${escapeHtml(card.value)}</p>
-                    <p class="dashboard-pair-note">${escapeHtml(card.note)}</p>
-                    ${card.meta?.length
-                        ? `
-                            <div class="dashboard-pair-meta">
-                                ${card.meta.map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("")}
+        <section class="dashboard-support" aria-label="Series snapshot">
+            <p class="dashboard-section-label">Series snapshot</p>
+            <div class="dashboard-pair-grid">
+                ${cards.map((card) => `
+                    <article class="dashboard-pair-card">
+                        <div class="dashboard-pair-top">
+                            <div class="dashboard-pair-header">
+                                <p class="dashboard-pair-label">${escapeHtml(card.label)}</p>
+                                <p class="dashboard-pair-title">${escapeHtml(card.title)}</p>
                             </div>
-                        `
-                        : ""
-                    }
-                </article>
-            `).join("")}
+                            <div class="dashboard-pair-main">
+                                <p class="dashboard-pair-value">${escapeHtml(card.value)}</p>
+                                <p class="dashboard-pair-note">${escapeHtml(card.note)}</p>
+                            </div>
+                        </div>
+                        ${card.meta?.length
+                            ? `
+                                <div class="dashboard-pair-meta">
+                                    ${card.meta.map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("")}
+                                </div>
+                            `
+                            : ""
+                        }
+                    </article>
+                `).join("")}
+            </div>
         </section>
     `;
 }
@@ -181,7 +206,7 @@ function renderSingleSeriesDashboard(model) {
                 ${renderHeroStats(model.heroStats)}
             </section>
 
-            ${renderInsight(model.insight)}
+            ${renderStoryLayout(model.insight)}
             ${renderWarnings(model.warnings)}
             ${renderActions(model.actions)}
             ${renderDetails(model.details)}
@@ -204,8 +229,8 @@ function renderPairedSeriesDashboard(model) {
                 ${renderHeroStats(model.heroStats)}
             </section>
 
+            ${renderStoryLayout(model.insight, { includeChart: true })}
             ${renderPairCards(model.pairCards)}
-            ${renderInsight(model.insight)}
             ${renderWarnings(model.warnings)}
             ${renderActions(model.actions)}
             ${renderDetails(model.details)}
@@ -228,8 +253,8 @@ function renderCrossSectionDashboard(model) {
                 ${renderHeroStats(model.heroStats)}
             </section>
 
+            ${renderStoryLayout(model.insight)}
             ${renderRankings(model.rankings)}
-            ${renderInsight(model.insight)}
             ${renderWarnings(model.warnings)}
             ${renderActions(model.actions)}
             ${renderDetails(model.details)}

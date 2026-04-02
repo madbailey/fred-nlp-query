@@ -43,6 +43,7 @@ export function createResultRenderer(elements) {
     }
 
     function clearResultCanvas() {
+        restoreChartPanelPlacement();
         setHidden(results, true);
         dashboardBody.innerHTML = "";
         answerText.innerHTML = "";
@@ -71,13 +72,40 @@ export function createResultRenderer(elements) {
     }
 
     function clearDashboardPanel() {
+        restoreChartPanelPlacement();
         dashboardBody.innerHTML = "";
         setHidden(dashboardPanel, true);
         setHidden(summaryGrid, false);
     }
 
+    function getDashboardChartSlot() {
+        return dashboardBody.querySelector("[data-dashboard-chart-slot]");
+    }
+
+    function restoreChartPanelPlacement() {
+        chartPanel.classList.remove("is-dashboard-embedded");
+        if (chartPanel.parentElement !== results) {
+            results.insertBefore(chartPanel, summaryGrid);
+        }
+    }
+
+    function placeChartPanelForDashboard() {
+        const chartSlot = getDashboardChartSlot();
+        if (!chartSlot) {
+            restoreChartPanelPlacement();
+            return false;
+        }
+
+        chartPanel.classList.add("is-dashboard-embedded");
+        if (chartPanel.parentElement !== chartSlot) {
+            chartSlot.appendChild(chartPanel);
+        }
+        return true;
+    }
+
     function renderDashboard(model) {
         dashboardBody.innerHTML = renderDashboardMarkup(model);
+        placeChartPanelForDashboard();
         setHidden(dashboardPanel, false);
         setHidden(summaryGrid, true);
         setHidden(detailGrid, true);
@@ -434,14 +462,17 @@ export function createResultRenderer(elements) {
 
     function renderChart(figure, response, { compact = false } = {}) {
         if (!figure || !window.Plotly) {
+            restoreChartPanelPlacement();
             setHidden(chartPanel, true);
             return;
         }
 
+        const embeddedInDashboard = compact && placeChartPanelForDashboard();
         chartPanel.classList.toggle("is-dashboard-mode", compact);
-        const theme = getThemeColors();
+        chartPanel.classList.toggle("is-dashboard-embedded", embeddedInDashboard);
         const chartTitleText = extractChartTitle(response, figure);
         const chartSubtitleText = extractChartSubtitle(response, figure);
+        const theme = getThemeColors();
         const data = (figure.data || []).map((trace) => ({
             ...trace,
             line: trace.type === "scatter" || !trace.type ? {
@@ -455,6 +486,7 @@ export function createResultRenderer(elements) {
 
         chartTitle.textContent = chartTitleText;
         chartSubtitle.textContent = chartSubtitleText;
+        chartElement.setAttribute("aria-label", chartTitleText || "Result chart");
         setHidden(chartSubtitle, !chartSubtitleText);
         setHidden(chartPanel, false);
 
