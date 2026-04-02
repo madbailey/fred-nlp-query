@@ -1,0 +1,362 @@
+[
+  {
+    "id": "inflation_examples_prioritize_base_indexes_and_dedupe_variants",
+    "intent": {
+      "task_type": "relationship_analysis",
+      "comparison_mode": "relationship",
+      "clarification_needed": true,
+      "clarification_target_index": 1,
+      "clarification_question": "Which inflation series should I use: CPI inflation (CPI-U), PCE inflation, or another inflation measure?",
+      "search_texts": ["brent crude oil price", "inflation united states"]
+    },
+    "search_results": {
+      "cpi inflation (cpi-u)": [
+        {
+          "series_id": "CPIAUCSL",
+          "title": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+          "units": "Index 1982-1984=100",
+          "frequency": "M",
+          "popularity": 95,
+          "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+        }
+      ],
+      "pce inflation": [
+        {
+          "series_id": "PCETRIM12M159SFRBDAL",
+          "title": "Trimmed Mean PCE Inflation Rate",
+          "units": "% Chg. from Yr. Ago",
+          "frequency": "M",
+          "popularity": 82,
+          "source_url": "https://fred.stlouisfed.org/series/PCETRIM12M159SFRBDAL"
+        },
+        {
+          "series_id": "PCEPI",
+          "title": "Personal Consumption Expenditures: Chain-type Price Index",
+          "units": "Index 2017=100",
+          "frequency": "M",
+          "popularity": 88,
+          "source_url": "https://fred.stlouisfed.org/series/PCEPI"
+        }
+      ],
+      "inflation united states": [
+        {
+          "series_id": "PCETRIM12M159SFRBDAL",
+          "title": "Trimmed Mean PCE Inflation Rate",
+          "units": "% Chg. from Yr. Ago",
+          "frequency": "M",
+          "popularity": 82,
+          "source_url": "https://fred.stlouisfed.org/series/PCETRIM12M159SFRBDAL"
+        },
+        {
+          "series_id": "PCETRIM1M158SFRBDAL",
+          "title": "Trimmed Mean PCE Inflation Rate",
+          "units": "% Chg. at Annual Rate",
+          "frequency": "M",
+          "popularity": 80,
+          "source_url": "https://fred.stlouisfed.org/series/PCETRIM1M158SFRBDAL"
+        },
+        {
+          "series_id": "PCEPI",
+          "title": "Personal Consumption Expenditures: Chain-type Price Index",
+          "units": "Index 2017=100",
+          "frequency": "M",
+          "popularity": 88,
+          "source_url": "https://fred.stlouisfed.org/series/PCEPI"
+        },
+        {
+          "series_id": "CPIAUCSL",
+          "title": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+          "units": "Index 1982-1984=100",
+          "frequency": "M",
+          "popularity": 95,
+          "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+        }
+      ]
+    },
+    "expect": {
+      "series_ids": ["CPIAUCSL", "PCEPI", "PCETRIM12M159SFRBDAL"],
+      "selection_labels": ["Headline CPI", "Headline PCE", "Trimmed Mean PCE"],
+      "clarification_option_labels": ["Headline CPI", "Headline PCE", "Trimmed Mean PCE"],
+      "selection_hints_contain": [
+        "Pick this if you want CPI",
+        "Pick this if you want PCE",
+        "smoother Dallas Fed trend measure"
+      ],
+      "unique_titles": true
+    }
+  },
+  {
+    "id": "gdp_examples_keep_real_nominal_and_growth_variants_distinct",
+    "intent": {
+      "task_type": "single_series_lookup",
+      "clarification_needed": true,
+      "clarification_target_index": 0,
+      "clarification_question": "Which GDP series should I use: real GDP, nominal GDP, or GDP growth?",
+      "search_text": "gdp united states"
+    },
+    "search_results": {
+      "real gdp": [
+        {
+          "series_id": "GDPC1",
+          "title": "Real Gross Domestic Product",
+          "units": "Billions of Chained 2017 Dollars",
+          "frequency": "Q",
+          "seasonal_adjustment": "SAAR",
+          "popularity": 91,
+          "source_url": "https://fred.stlouisfed.org/series/GDPC1"
+        }
+      ],
+      "nominal gdp": [
+        {
+          "series_id": "GDP",
+          "title": "Gross Domestic Product",
+          "units": "Billions of Current Dollars",
+          "frequency": "Q",
+          "seasonal_adjustment": "SAAR",
+          "popularity": 94,
+          "source_url": "https://fred.stlouisfed.org/series/GDP"
+        }
+      ],
+      "gdp growth": [
+        {
+          "series_id": "A191RL1Q225SBEA",
+          "title": "Real Gross Domestic Product",
+          "units": "Percent Change from Preceding Period",
+          "frequency": "Q",
+          "seasonal_adjustment": "SAAR",
+          "popularity": 78,
+          "source_url": "https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
+        }
+      ],
+      "gdp united states": [
+        {
+          "series_id": "A191RL1Q225SBEA",
+          "title": "Real Gross Domestic Product",
+          "units": "Percent Change from Preceding Period",
+          "frequency": "Q",
+          "seasonal_adjustment": "SAAR",
+          "popularity": 78,
+          "source_url": "https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
+        },
+        {
+          "series_id": "GDP",
+          "title": "Gross Domestic Product",
+          "units": "Billions of Current Dollars",
+          "frequency": "Q",
+          "seasonal_adjustment": "SAAR",
+          "popularity": 94,
+          "source_url": "https://fred.stlouisfed.org/series/GDP"
+        },
+        {
+          "series_id": "GDPC1",
+          "title": "Real Gross Domestic Product",
+          "units": "Billions of Chained 2017 Dollars",
+          "frequency": "Q",
+          "seasonal_adjustment": "SAAR",
+          "popularity": 91,
+          "source_url": "https://fred.stlouisfed.org/series/GDPC1"
+        }
+      ]
+    },
+    "expect": {
+      "series_ids": ["GDPC1", "GDP", "A191RL1Q225SBEA"],
+      "selection_labels": ["Real Series", "Nominal Series", "Real Growth Rate"],
+      "selection_hints_contain": [
+        "inflation-adjusted version",
+        "nominal/current-dollar version",
+        "growth-rate version"
+      ]
+    }
+  },
+  {
+    "id": "seasonal_adjustment_variants_are_not_deduped",
+    "intent": {
+      "task_type": "single_series_lookup",
+      "clarification_needed": true,
+      "clarification_target_index": 0,
+      "clarification_question": "Which unemployment series should I use: seasonally adjusted unemployment rate or not seasonally adjusted unemployment rate?",
+      "search_text": "unemployment rate"
+    },
+    "search_results": {
+      "seasonally adjusted unemployment rate": [
+        {
+          "series_id": "UNRATE",
+          "title": "Unemployment Rate",
+          "units": "Percent",
+          "frequency": "M",
+          "seasonal_adjustment": "Seasonally Adjusted",
+          "popularity": 95,
+          "source_url": "https://fred.stlouisfed.org/series/UNRATE"
+        }
+      ],
+      "not seasonally adjusted unemployment rate": [
+        {
+          "series_id": "UNRATENSA",
+          "title": "Unemployment Rate",
+          "units": "Percent",
+          "frequency": "M",
+          "seasonal_adjustment": "Not Seasonally Adjusted",
+          "popularity": 79,
+          "source_url": "https://fred.stlouisfed.org/series/UNRATENSA"
+        }
+      ],
+      "unemployment rate": [
+        {
+          "series_id": "UNRATE",
+          "title": "Unemployment Rate",
+          "units": "Percent",
+          "frequency": "M",
+          "seasonal_adjustment": "Seasonally Adjusted",
+          "popularity": 95,
+          "source_url": "https://fred.stlouisfed.org/series/UNRATE"
+        },
+        {
+          "series_id": "UNRATENSA",
+          "title": "Unemployment Rate",
+          "units": "Percent",
+          "frequency": "M",
+          "seasonal_adjustment": "Not Seasonally Adjusted",
+          "popularity": 79,
+          "source_url": "https://fred.stlouisfed.org/series/UNRATENSA"
+        }
+      ]
+    },
+    "expect": {
+      "series_ids": ["UNRATE", "UNRATENSA"],
+      "selection_badges_include": [
+        ["Monthly", "Percent", "Seasonally Adjusted"],
+        ["Monthly", "Percent", "Not Seasonally Adjusted"]
+      ],
+      "clarification_option_badges_include": [
+        ["Monthly", "Percent", "Seasonally Adjusted"],
+        ["Monthly", "Percent", "Not Seasonally Adjusted"]
+      ]
+    }
+  },
+  {
+    "id": "per_capita_variants_are_prioritized_when_requested",
+    "intent": {
+      "task_type": "single_series_lookup",
+      "clarification_needed": true,
+      "clarification_target_index": 0,
+      "clarification_question": "Which income series should I use: per capita personal income or aggregate personal income?",
+      "search_text": "personal income"
+    },
+    "search_results": {
+      "per capita personal income": [
+        {
+          "series_id": "A792RC0Q052SBEA",
+          "title": "Real Personal Income Per Capita",
+          "units": "Chained 2017 Dollars",
+          "frequency": "Q",
+          "popularity": 72,
+          "source_url": "https://fred.stlouisfed.org/series/A792RC0Q052SBEA"
+        }
+      ],
+      "aggregate personal income": [
+        {
+          "series_id": "PI",
+          "title": "Personal Income",
+          "units": "Billions of Dollars",
+          "frequency": "M",
+          "popularity": 90,
+          "source_url": "https://fred.stlouisfed.org/series/PI"
+        }
+      ],
+      "personal income": [
+        {
+          "series_id": "PI",
+          "title": "Personal Income",
+          "units": "Billions of Dollars",
+          "frequency": "M",
+          "popularity": 90,
+          "source_url": "https://fred.stlouisfed.org/series/PI"
+        },
+        {
+          "series_id": "A792RC0Q052SBEA",
+          "title": "Real Personal Income Per Capita",
+          "units": "Chained 2017 Dollars",
+          "frequency": "Q",
+          "popularity": 72,
+          "source_url": "https://fred.stlouisfed.org/series/A792RC0Q052SBEA"
+        }
+      ]
+    },
+    "expect": {
+      "series_ids": ["A792RC0Q052SBEA", "PI"],
+      "selection_labels": ["Real Per Capita Series", "Nominal Series"],
+      "selection_hints_contain": [
+        "inflation-adjusted, per-capita version",
+        "nominal/current-dollar version"
+      ]
+    }
+  },
+  {
+    "id": "multi_series_context_does_not_leak_treasury_terms_into_inflation_target",
+    "intent": {
+      "task_type": "relationship_analysis",
+      "comparison_mode": "relationship",
+      "original_query": "What is the relationship between 10-year Treasury yields and inflation?",
+      "clarification_needed": true,
+      "clarification_target_index": 1,
+      "clarification_question": "Which inflation series should I use: CPI inflation, PCE inflation, or another inflation measure?",
+      "search_texts": ["10-year Treasury yield", "inflation united states"]
+    },
+    "search_results": {
+      "cpi inflation": [
+        {
+          "series_id": "CPIAUCSL",
+          "title": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+          "units": "Index 1982-1984=100",
+          "frequency": "M",
+          "popularity": 95,
+          "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+        }
+      ],
+      "pce inflation": [
+        {
+          "series_id": "PCEPI",
+          "title": "Personal Consumption Expenditures: Chain-type Price Index",
+          "units": "Index 2017=100",
+          "frequency": "M",
+          "popularity": 88,
+          "source_url": "https://fred.stlouisfed.org/series/PCEPI"
+        }
+      ],
+      "inflation united states": [
+        {
+          "series_id": "T10YIE",
+          "title": "10-Year Breakeven Inflation Rate",
+          "units": "Percent",
+          "frequency": "D",
+          "popularity": 100,
+          "source_url": "https://fred.stlouisfed.org/series/T10YIE"
+        },
+        {
+          "series_id": "PCEPI",
+          "title": "Personal Consumption Expenditures: Chain-type Price Index",
+          "units": "Index 2017=100",
+          "frequency": "M",
+          "popularity": 88,
+          "source_url": "https://fred.stlouisfed.org/series/PCEPI"
+        },
+        {
+          "series_id": "CPIAUCSL",
+          "title": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+          "units": "Index 1982-1984=100",
+          "frequency": "M",
+          "popularity": 95,
+          "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+        }
+      ]
+    },
+    "expect": {
+      "series_ids": ["CPIAUCSL", "PCEPI"],
+      "selection_labels": ["Headline CPI", "Headline PCE"],
+      "selection_hints_contain": [
+        "Pick this if you want CPI",
+        "Pick this if you want PCE"
+      ]
+    }
+  }
+]

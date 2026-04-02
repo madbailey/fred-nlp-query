@@ -1,0 +1,46 @@
+{
+  "suite": "clarification",
+  "model": "gpt-5.4-mini",
+  "reasoning_effort": "low",
+  "passed": 5,
+  "total": 6,
+  "pass_rate": 0.8333333333333334,
+  "results": [
+    {
+      "case_id": "employment_since_2020",
+      "query": "Show me employment since 2020",
+      "passed": false,
+      "details": "task_type='single_series_lookup', transform='level', clarification_needed=True, search='employment'; expected clarification_needed=False, got True"
+    },
+    {
+      "case_id": "housing_since_2020",
+      "query": "Show me housing since 2020",
+      "passed": true,
+      "details": "task_type='single_series_lookup', transform='level', clarification_needed=True, search='housing'"
+    },
+    {
+      "case_id": "nsa_unemployment_since_2020",
+      "query": "Show me the not seasonally adjusted unemployment rate since 2020",
+      "passed": true,
+      "details": "task_type='single_series_lookup', transform='level', clarification_needed=False, search='unemployment rate not seasonally adjusted'"
+    },
+    {
+      "case_id": "real_personal_income_per_capita_since_2018",
+      "query": "Show me real personal income per capita since 2018",
+      "passed": true,
+      "details": "task_type='single_series_lookup', transform='level', clarification_needed=False, search='real personal income per capita'"
+    },
+    {
+      "case_id": "compare_real_and_nominal_gdp_since_2015",
+      "query": "Compare real GDP and nominal GDP since 2015",
+      "passed": true,
+      "details": "task_type='multi_series_comparison', transform='level', clarification_needed=False, search='real GDP nominal GDP'"
+    },
+    {
+      "case_id": "house_prices_vs_mortgage_rates",
+      "query": "What is the relationship between house prices and mortgage rates since 2012?",
+      "passed": true,
+      "details": "task_type='relationship_analysis', transform='level', clarification_needed=True, search='house prices 30-year fixed mortgage rate'"
+    }
+  ]
+}
