@@ -11,9 +11,7 @@ from fred_query.schemas.resolved_series import SeriesSearchMatch
 from fred_query.services.clarification_resolver import ClarificationResolver
 
 
-pytestmark = pytest.mark.evals
-
-_CASE_PATH = Path(__file__).with_name("clarification_resolver_cases.json")
+_CASE_PATH = Path(__file__).with_name("clarification_resolver_eval_cases.json")
 
 
 class _FixtureFREDClient:

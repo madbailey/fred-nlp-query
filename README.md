@@ -93,16 +93,16 @@ python -m pytest tests/evals/test_intent_evals.py --run-evals -q
 python -m pytest tests/evals/test_intent_evals.py --run-evals -q --eval-model gpt-5.4-mini
 python -m pytest tests/evals/test_intent_evals.py --run-evals -q --eval-results-out tests/evals/results/gpt-5.4-mini.json
 python -m pytest tests/evals/test_clarification_trigger_evals.py --run-evals -q --eval-model gpt-5.4-mini
-python -m pytest tests/evals/test_clarification_resolver_evals.py --run-evals -q
+python -m pytest tests/test_clarification_resolver_eval_cases.py -q
 ```
 
 The evals now split into three layers:
 
 - `test_intent_evals.py`: broad parser behavior
 - `test_clarification_trigger_evals.py`: parser-side clarification triggering
-- `test_clarification_resolver_evals.py`: fixture-driven resolver ranking/labeling/dedup behavior
+- `test_clarification_resolver_eval_cases.py`: fixture-driven resolver ranking/labeling/dedup behavior
 
-The harness prints a scorecard in the test output, and it can write JSON snapshots for model-to-model comparisons. When `--eval-results-out` is set, the general intent suite writes the requested file and the clarification-trigger suite writes a sibling file with `-clarification-trigger` appended to the filename. The chart below is generated from saved intent-eval results:
+The live eval harness prints a scorecard in the test output, and it can write JSON snapshots for model-to-model comparisons. When `--eval-results-out` is set, the general intent suite writes the requested file and the clarification-trigger suite writes a sibling file with `-clarification-trigger` appended to the filename. The chart below is generated from saved intent-eval results:
 
 ![Intent eval model comparison](docs/assets/intent-eval-model-comparison.svg)
 
