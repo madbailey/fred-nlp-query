@@ -206,7 +206,7 @@ function renderSingleSeriesDashboard(model) {
                 ${renderHeroStats(model.heroStats)}
             </section>
 
-            ${renderStoryLayout(model.insight)}
+            ${renderStoryLayout(model.insight, { includeChart: true })}
             ${renderWarnings(model.warnings)}
             ${renderActions(model.actions)}
             ${renderDetails(model.details)}
@@ -253,7 +253,7 @@ function renderCrossSectionDashboard(model) {
                 ${renderHeroStats(model.heroStats)}
             </section>
 
-            ${renderStoryLayout(model.insight)}
+            ${renderStoryLayout(model.insight, { includeChart: true })}
             ${renderRankings(model.rankings)}
             ${renderWarnings(model.warnings)}
             ${renderActions(model.actions)}

@@ -1278,14 +1278,21 @@ h1 {
 
 .chart-panel.is-dashboard-embedded {
     height: 100%;
-    padding: 14px;
+    gap: 10px;
+    padding: 12px 14px 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius-compact);
     background: var(--surface-raised);
 }
 
 .chart-panel.is-dashboard-embedded .chart {
-    min-height: clamp(240px, 30vh, 340px);
+    min-height: clamp(220px, 27vh, 300px);
+}
+
+.chart-panel.is-dashboard-embedded .source-note {
+    padding-top: 8px;
+    font-size: 10px;
+    line-height: 1.4;
 }
 
 .chart-panel.is-dashboard-embedded .source-note {

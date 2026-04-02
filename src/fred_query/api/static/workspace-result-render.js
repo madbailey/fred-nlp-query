@@ -483,6 +483,11 @@ export function createResultRenderer(elements) {
         const spanYears = getTimeSeriesSpanYears(data);
         const showRangeControls = spanYears >= 4;
         const showLegend = data.length > 1;
+        const showRangeSlider = showRangeControls && !embeddedInDashboard;
+        const marginBottom = embeddedInDashboard
+            ? (showLegend ? 52 : 40)
+            : showRangeControls && showLegend ? 150 : showRangeControls ? 118 : (showLegend ? 86 : 56);
+        const marginTop = embeddedInDashboard && (showRangeControls || showLegend) ? 34 : 20;
 
         chartTitle.textContent = chartTitleText;
         chartSubtitle.textContent = chartSubtitleText;
@@ -498,10 +503,10 @@ export function createResultRenderer(elements) {
             hoverdistance: 80,
             spikedistance: -1,
             margin: {
-                l: 64,
+                l: embeddedInDashboard ? 56 : 64,
                 r: 18,
-                t: 20,
-                b: showRangeControls && showLegend ? 150 : showRangeControls ? 118 : (showLegend ? 86 : 56),
+                t: marginTop,
+                b: marginBottom,
             },
             font: {
                 family: '"Space Grotesk", "DM Sans", system-ui, sans-serif',
@@ -519,10 +524,10 @@ export function createResultRenderer(elements) {
             },
             legend: showLegend ? {
                 orientation: "h",
-                yanchor: "top",
-                y: showRangeControls ? -0.35 : -0.2,
-                xanchor: "left",
-                x: 0,
+                yanchor: embeddedInDashboard ? "bottom" : "top",
+                y: embeddedInDashboard ? 1.12 : (showRangeControls ? -0.35 : -0.2),
+                xanchor: embeddedInDashboard ? "right" : "left",
+                x: embeddedInDashboard ? 1 : 0,
                 font: {
                     family: '"Space Mono", monospace',
                     size: 11,
@@ -532,6 +537,7 @@ export function createResultRenderer(elements) {
             annotations: removeSubtitleAnnotation(figure.layout?.annotations, chartSubtitleText),
             xaxis: {
                 ...figure.layout?.xaxis,
+                title: embeddedInDashboard ? undefined : figure.layout?.xaxis?.title,
                 gridcolor: theme.border,
                 zeroline: false,
                 automargin: true,
@@ -551,7 +557,7 @@ export function createResultRenderer(elements) {
                 ] : undefined,
                 rangeselector: showRangeControls ? {
                     x: 0,
-                    y: 1.14,
+                    y: embeddedInDashboard ? 1.1 : 1.14,
                     xanchor: "left",
                     yanchor: "bottom",
                     bgcolor: theme.surface,
@@ -565,7 +571,7 @@ export function createResultRenderer(elements) {
                     },
                     buttons: buildRangeSelectorButtons(spanYears),
                 } : undefined,
-                rangeslider: showRangeControls ? {
+                rangeslider: showRangeSlider ? {
                     visible: true,
                     bgcolor: theme.black,
                     bordercolor: theme.border,
