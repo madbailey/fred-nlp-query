@@ -87,6 +87,10 @@
                     </section>
 
                     <section id="results" class="result-canvas hidden">
+                        <article id="dashboard-panel" class="panel dashboard-panel hidden">
+                            <div id="dashboard-body" class="dashboard-body"></div>
+                        </article>
+
                         <article id="chart-panel" class="panel chart-panel hidden">
                             <header class="chart-header">
                                 <h2 id="chart-title" class="chart-title"></h2>
@@ -96,36 +100,39 @@
                             <p id="source-note" class="source-note"></p>
                         </article>
 
-                        <article id="metrics-panel" class="panel hidden">
-                            <div class="panel-heading">
-                                <h2>Derived metrics</h2>
-                            </div>
-                            <div id="metrics-grid" class="metrics-grid"></div>
-                        </article>
+                        <div id="summary-grid" class="summary-grid">
+                            <article class="panel answer-panel">
+                                <div id="answer-text" class="answer-text"></div>
+                                <div id="warning-list" class="warning-list"></div>
+                                <details id="intent-details" class="intent-details">
+                                    <summary class="intent-toggle">Query details</summary>
+                                    <dl id="intent-summary" class="intent-summary"></dl>
+                                </details>
+                            </article>
 
-                        <article class="panel answer-panel">
-                            <p id="answer-text" class="answer-text"></p>
-                            <div id="warning-list" class="warning-list"></div>
-                            <details id="intent-details" class="intent-details">
-                                <summary class="intent-toggle">Query details</summary>
-                                <dl id="intent-summary" class="intent-summary"></dl>
-                            </details>
-                        </article>
+                            <article id="metrics-panel" class="panel hidden">
+                                <div class="panel-heading">
+                                    <h2>Key metrics</h2>
+                                </div>
+                                <div id="metrics-grid" class="metrics-grid"></div>
+                            </article>
+                        </div>
 
-                        <article id="series-panel" class="panel hidden">
-                            <div class="panel-heading">
-                                <h2>Series detail</h2>
-                            </div>
-                            <div id="series-grid" class="series-grid"></div>
-                        </article>
+                        <div id="detail-grid" class="detail-grid">
+                            <article id="series-panel" class="panel hidden">
+                                <div class="panel-heading">
+                                    <h2>Series</h2>
+                                </div>
+                                <div id="series-grid" class="series-grid"></div>
+                            </article>
 
-                        <article id="follow-up-panel" class="panel follow-up-panel hidden">
-                            <div class="panel-heading">
-                                <h2>Try next</h2>
-                            </div>
-                            <p class="follow-up-copy">Suggested follow-up prompts generated from this result.</p>
-                            <div id="follow-up-list" class="follow-up-list"></div>
-                        </article>
+                            <article id="follow-up-panel" class="panel follow-up-panel hidden">
+                                <div class="panel-heading">
+                                    <h2>Try next</h2>
+                                </div>
+                                <div id="follow-up-list" class="follow-up-list"></div>
+                            </article>
+                        </div>
                     </section>
                 </div>
 

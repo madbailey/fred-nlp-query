@@ -1,3 +1,5 @@
+import { buildDashboardModel } from "./workspace-dashboard-model.js";
+import { renderDashboardMarkup } from "./workspace-dashboard-templates.js";
 import {
     escapeHtml,
     formatDate,
@@ -9,6 +11,10 @@ import {
 export function createResultRenderer(elements) {
     const {
         results,
+        dashboardPanel,
+        dashboardBody,
+        summaryGrid,
+        detailGrid,
         answerText,
         intentSummary,
         warningList,
@@ -37,7 +43,8 @@ export function createResultRenderer(elements) {
 
     function clearResultCanvas() {
         setHidden(results, true);
-        answerText.textContent = "";
+        dashboardBody.innerHTML = "";
+        answerText.innerHTML = "";
         intentSummary.innerHTML = "";
         warningList.innerHTML = "";
         followUpList.innerHTML = "";
@@ -48,13 +55,76 @@ export function createResultRenderer(elements) {
         setHidden(chartSubtitle, true);
         sourceNote.textContent = "";
         setHidden(sourceNote, true);
+        chartPanel.classList.remove("is-dashboard-mode");
+        setHidden(dashboardPanel, true);
+        setHidden(summaryGrid, false);
+        setHidden(detailGrid, true);
         setHidden(chartPanel, true);
         setHidden(metricsPanel, true);
         setHidden(seriesPanel, true);
         setHidden(followUpPanel, true);
+        results.classList.remove("has-metrics", "has-series", "has-follow-ups");
         if (window.Plotly) {
             window.Plotly.purge(chartElement);
         }
+    }
+
+    function clearDashboardPanel() {
+        dashboardBody.innerHTML = "";
+        setHidden(dashboardPanel, true);
+        setHidden(summaryGrid, false);
+    }
+
+    function renderDashboard(model) {
+        dashboardBody.innerHTML = renderDashboardMarkup(model);
+        setHidden(dashboardPanel, false);
+        setHidden(summaryGrid, true);
+        setHidden(detailGrid, true);
+    }
+
+    function syncDetailGridVisibility() {
+        const hasVisibleDetailPanel = !seriesPanel.classList.contains("hidden") || !followUpPanel.classList.contains("hidden");
+        setHidden(detailGrid, !hasVisibleDetailPanel);
+    }
+
+    function splitAnswerText(rawText) {
+        const normalized = (rawText || "").replace(/\s+/g, " ").trim();
+        if (!normalized) {
+            return { lead: "", support: [], footnote: "" };
+        }
+
+        const sentences = normalized
+            .split(/(?<=[.!?])\s+(?=[A-Z0-9])/g)
+            .map((sentence) => sentence.trim())
+            .filter(Boolean);
+        let footnote = "";
+        const content = [];
+
+        for (const sentence of sentences) {
+            if (!footnote && /^Series used:/i.test(sentence)) {
+                footnote = sentence;
+                continue;
+            }
+            content.push(sentence);
+        }
+
+        const [lead = "", ...support] = content;
+        return { lead, support, footnote };
+    }
+
+    function renderAnswer(rawText) {
+        const { lead, support, footnote } = splitAnswerText(rawText);
+        answerText.innerHTML = [
+            lead ? `<p class="answer-lead">${escapeHtml(lead)}</p>` : "",
+            support.length
+                ? `
+                    <div class="answer-support">
+                        ${support.map((sentence) => `<p>${escapeHtml(sentence)}</p>`).join("")}
+                    </div>
+                `
+                : "",
+            footnote ? `<p class="answer-footnote">${escapeHtml(footnote)}</p>` : "",
+        ].join("");
     }
 
     function extractChartTitle(response, figure) {
@@ -267,9 +337,15 @@ export function createResultRenderer(elements) {
     }
 
     function renderFollowUpSuggestions(suggestions, { hideFollowUps = false } = {}) {
-        if (hideFollowUps || !Array.isArray(suggestions) || suggestions.length === 0) {
+        const hasSuggestions = !hideFollowUps
+            && Array.isArray(suggestions)
+            && suggestions.some((suggestion) => Boolean(typeof suggestion === "string" ? suggestion : suggestion?.query));
+        results.classList.toggle("has-follow-ups", hasSuggestions);
+
+        if (!hasSuggestions) {
             followUpList.innerHTML = "";
             setHidden(followUpPanel, true);
+            syncDetailGridVisibility();
             return;
         }
 
@@ -293,9 +369,44 @@ export function createResultRenderer(elements) {
             })
             .join("");
         setHidden(followUpPanel, false);
+        syncDetailGridVisibility();
+    }
+
+    function formatMetricMeta(metric) {
+        const rawDescription = (metric.description || "").trim();
+        if (!rawDescription) {
+            return "";
+        }
+
+        if (metric.name === "top_search_match") {
+            return "Selected series";
+        }
+
+        const spanMatch = rawDescription.match(/Average across ([\d,]+) observations from (\d{4})-\d{2}-\d{2} to (\d{4})-\d{2}-\d{2}\.?/i);
+        if (metric.name === "historical_average" && spanMatch) {
+            return `${spanMatch[1]} obs | ${spanMatch[2]}-${spanMatch[3]}`;
+        }
+
+        if (metric.name === "historical_percentile_rank") {
+            return "Latest reading vs history";
+        }
+
+        const extremumMatch = rawDescription.match(/reached on (\d{4}-\d{2}-\d{2})/i);
+        if (metric.name === "historical_peak" && extremumMatch) {
+            return `Peak on ${formatDate(extremumMatch[1])}`;
+        }
+
+        if (metric.name === "historical_trough" && extremumMatch) {
+            return `Low on ${formatDate(extremumMatch[1])}`;
+        }
+
+        return rawDescription;
     }
 
     function renderDerivedMetrics(metrics) {
+        const hasMetrics = Array.isArray(metrics) && metrics.length > 0;
+        results.classList.toggle("has-metrics", hasMetrics);
+
         if (!metrics || metrics.length === 0) {
             metricsGrid.innerHTML = "";
             setHidden(metricsPanel, true);
@@ -306,11 +417,12 @@ export function createResultRenderer(elements) {
             .map((metric) => {
                 const unit = metric.unit ? ` ${escapeHtml(metric.unit)}` : "";
                 const label = metric.label || humanize(metric.name);
+                const meta = formatMetricMeta(metric);
                 return `
                     <article class="metric-card">
                         <p class="metric-card-label">${escapeHtml(label)}</p>
                         <p class="metric-card-value">${escapeHtml(formatValue(metric.value))}${unit}</p>
-                        ${metric.description ? `<p class="metric-card-description">${escapeHtml(metric.description)}</p>` : ""}
+                        ${meta ? `<p class="metric-card-description">${escapeHtml(meta)}</p>` : ""}
                     </article>
                 `;
             })
@@ -332,12 +444,13 @@ export function createResultRenderer(elements) {
         };
     }
 
-    function renderChart(figure, response) {
+    function renderChart(figure, response, { compact = false } = {}) {
         if (!figure || !window.Plotly) {
             setHidden(chartPanel, true);
             return;
         }
 
+        chartPanel.classList.toggle("is-dashboard-mode", compact);
         const theme = getThemeColors();
         const chartTitleText = extractChartTitle(response, figure);
         const chartSubtitleText = extractChartSubtitle(response, figure);
@@ -473,9 +586,13 @@ export function createResultRenderer(elements) {
     }
 
     function renderSeriesResults(seriesResults) {
+        const hasSeries = Array.isArray(seriesResults) && seriesResults.length > 0;
+        results.classList.toggle("has-series", hasSeries);
+
         if (!seriesResults || seriesResults.length === 0) {
             setHidden(seriesPanel, true);
             seriesGrid.innerHTML = "";
+            syncDetailGridVisibility();
             return;
         }
 
@@ -533,6 +650,7 @@ export function createResultRenderer(elements) {
             })
             .join("");
         setHidden(seriesPanel, false);
+        syncDetailGridVisibility();
     }
 
     function renderResultPayload(response, options = {}) {
@@ -542,13 +660,31 @@ export function createResultRenderer(elements) {
         }
 
         setHidden(results, false);
-        answerText.textContent = response.answer_text || "";
+        const dashboardModel = buildDashboardModel(response);
+        if (dashboardModel) {
+            renderDashboard(dashboardModel);
+            metricsGrid.innerHTML = "";
+            seriesGrid.innerHTML = "";
+            followUpList.innerHTML = "";
+            warningList.innerHTML = "";
+            intentSummary.innerHTML = "";
+            setHidden(metricsPanel, true);
+            setHidden(seriesPanel, true);
+            setHidden(followUpPanel, true);
+            renderChart(response.plotly_figure, response, { compact: true });
+            return;
+        }
+
+        clearDashboardPanel();
+        setHidden(summaryGrid, false);
+        renderAnswer(response.answer_text || "");
         renderIntent(response.intent || {});
         renderWarnings(response.result?.analysis?.warnings || []);
         renderFollowUpSuggestions(response.follow_up_suggestions || [], options);
         renderDerivedMetrics(response.result?.analysis?.derived_metrics || []);
-        renderChart(response.plotly_figure, response);
+        renderChart(response.plotly_figure, response, { compact: false });
         renderSeriesResults(response.result?.analysis?.series_results || []);
+        syncDetailGridVisibility();
     }
 
     function clearClarificationPanel() {
@@ -615,7 +751,7 @@ export function createResultRenderer(elements) {
     }
 
     function getFollowUpButtons() {
-        return Array.from(followUpList.querySelectorAll(".follow-up-suggestion"));
+        return Array.from(results.querySelectorAll(".follow-up-suggestion"));
     }
 
     return {
