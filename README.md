@@ -1,117 +1,113 @@
-# FRED NLP Query
- <img width="900" height="476" alt="image" src="https://github.com/user-attachments/assets/aabaf2d7-ee42-4087-a9fe-b3478e67c464" />
+# FRED Query
 
-A natural language interface for retrieving data from  Federal Reserve Economic Data (FRED). Ask questions about economic indicators in plain English and get structured data and visualizations back.
- 
+`fred-query` is a Python app for asking plain-English questions about FRED data and turning them into structured queries, charts, and summaries.
+
+![FRED Query home screen](https://github.com/user-attachments/assets/aabaf2d7-ee42-4087-a9fe-b3478e67c464)
+
+This repo includes:
+
+- a FastAPI backend
+- a small browser UI served by that backend
+- a CLI
+- a typed service layer that executes FRED lookups deterministically
+
+The LLM is only used for intent parsing and clarification. Data retrieval, transforms, and chart generation happen in code.
+
 ## What It Does
- 
-FRED NLP Query lets users interact with the FRED database conversationally. Instead of manually looking up series codes and constructing API requests, you can ask something like:
- 
-```
-"Show me the unemployment rate since 2020"
-"How has California's GDP compared with Texas since 2019?"
-```
- <img width="800" height="735" alt="image" src="https://github.com/user-attachments/assets/3f9a6ac5-b6cc-423d-9c51-98685566d852" />
 
-The application parses your intent using an LLM, maps it to the correct FRED series and parameters, executes the query deterministically against the FRED API, and returns structured data — all through a REST API, browser UI, or CLI.
-The LLM is used *only* for intent parsing and clarification. All data retrieval and execution is deterministic.
+Examples of the kinds of questions it handles:
 
-Multi-turn follow-up memory is supported on the `/api/ask` route. Each response returns a `session_id`; reuse that `session_id` on later asks to support follow-ups like "now make that YoY", "compare it to CPI", or "rank the top 5 instead" without restating the full query.
- 
-## Architecture
- 
-```
-┌──────────────┐     ┌──────────────────┐     ┌────────────┐
-│  Browser UI  │────▶│   FastAPI App     │────▶│  FRED API  │
-│  or CLI      │◀────│                   │◀────│            │
-└──────────────┘     │  ┌─────────────┐  │     └────────────┘
-                     │  │ LLM (OpenAI)│  │
-                     │  │ Intent only │  │
-                     │  └─────────────┘  │
-                     └──────────────────┘
-```
- 
-- **API Layer** — FastAPI handles request validation, routing, and structured JSON error responses
-- **NLP Layer** — OpenAI integration parses natural language into typed query parameters
-- **Data Layer** — Typed query engine executes against the FRED API with Pydantic models
-- **Presentation** — Browser UI served as static assets from the same FastAPI app, plus a CLI
- 
-## Tech Stack
- 
-| Component | Technology |
-|-----------|-----------|
-| Language | Python 3.12 |
-| Web Framework | FastAPI |
-| HTTP Client | httpx |
-| LLM Integration | OpenAI API |
-| Validation | Pydantic v2 |
-| Server | Uvicorn |
-| Frontend | Vanilla JavaScript, CSS, HTML |
-| Containerization | Docker + Docker Compose |
-| Packaging | setuptools with pyproject.toml |
+- "Show me the unemployment rate since 2020"
+- "Compare CPI and PCE since 2019"
+- "Rank the top 10 states by unemployment rate"
+- "How has California GDP compared with Texas since 2019?"
+- "What was the first release value for this series?"
 
+Today the main supported flows are:
 
- ### Prerequisites
- 
+- single-series lookups
+- pairwise comparisons and relationship analysis
+- cross-sectional rankings
+- state GDP comparison
+- follow-up queries on the API via `session_id`
+- vintage / revision analysis for first-release vs latest values
+
+## Quick Start
+
+Requirements:
+
 - Python 3.12+
-- A [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) (free)
-- An [OpenAI API key](https://platform.openai.com/api-keys) (required for natural language queries)
+- a [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html)
+- an [OpenAI API key](https://platform.openai.com/api-keys) for natural-language parsing
 
-### Local Development
- 
+Install:
+
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Linux/macOS
-# .\.venv\Scripts\Activate.ps1   # Windows PowerShell
- 
+source .venv/bin/activate
+# Windows PowerShell: .\.venv\Scripts\Activate.ps1
+
 pip install -U pip
 pip install -e .
 ```
- 
-### Run the App
- 
+
+Create a `.env` file:
+
+```env
+FRED_API_KEY=...
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_REASONING_EFFORT=low
+```
+
+Run the app:
+
 ```bash
 uvicorn fred_query.api.app:app --reload
 ```
- 
-Then open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-### Run Live Intent Evals
+Then open `http://127.0.0.1:8000`.
 
-These evals call the real OpenAI parser and are skipped during normal test runs unless you opt in.
+## CLI
+
+The package installs a `fred-query` command.
+
+Examples:
+
+```bash
+fred-query ask "Show me the unemployment rate since 2020"
+fred-query ask "Compare CPI and PCE since 2019" --format json
+fred-query compare-state-gdp --state1 CA --state2 TX --start-date 2019-01-01
+```
+
+You can also write the generated chart spec to disk with `--chart-spec-out`.
+
+## Evals
+
+`tests/evals/` is a small live eval harness for the intent parser. It is useful when you are changing prompts, parser behavior, or model settings and want a quick quality check on real OpenAI calls.
+
+These evals are skipped during normal test runs unless you opt in:
 
 ```bash
 python -m pytest tests/evals/test_intent_evals.py --run-evals -q
-python -m pytest tests/evals/test_intent_evals.py --run-evals -q --eval-model gpt-4.1-mini --eval-reasoning-effort none
-python -m pytest tests/evals/test_intent_evals.py --run-evals -q --eval-model gpt-5.4-mini --eval-results-out tests/evals/results/gpt-5.4-mini.json
+python -m pytest tests/evals/test_intent_evals.py --run-evals -q --eval-model gpt-5.4-mini
+python -m pytest tests/evals/test_intent_evals.py --run-evals -q --eval-results-out tests/evals/results/gpt-5.4-mini.json
 ```
 
-The eval harness prints a pass/fail scorecard at the end so you can compare parser behavior across models without mixing token spend into the normal unit-test loop. It can also write JSON snapshots for charting with `--eval-results-out`.
-
-To regenerate the current comparison chart:
-
-```bash
-python tests/evals/render_intent_eval_chart.py
-```
-
-### Sample Model Comparison
-
-Simpler models can produce better results. Sample live run eval using the 11-case fixture set in `tests/evals/intent_cases.json`.
+The harness prints a scorecard in the test output, and it can write JSON snapshots for model-to-model comparisons. The chart below is generated from those saved results:
 
 ![Intent eval model comparison](docs/assets/intent-eval-model-comparison.svg)
 
+## What To Know About This Repo
 
-Notes:
+- `src/fred_query/services/` is the core of the project. That is where intent routing, FRED lookups, transforms, and analysis live.
+- `src/fred_query/api/` contains the FastAPI app and the static browser UI.
+- `tests/` is mostly unit coverage for routing, transforms, API behavior, and clarification logic.
+- `/api/ask` supports follow-up questions. The response includes a `session_id`; send it back on the next request to support prompts like "now make that YoY" or "rank the top 5 instead."
+- Ambiguous prompts are expected. The app can return candidate series so the caller can disambiguate instead of guessing.
 
-- `gpt-4.1-*` runs used `--eval-reasoning-effort none` because those models reject the `reasoning.effort` parameter.
-- This is a single live sample run, not a statistically stable benchmark. Re-run the evals before making pricing or quality decisions.
-- In this sample, the main misses were over-clarification on otherwise usable prompts, especially for generic inflation and relationship queries.
- 
-### Run with Docker
- 
+## Docker
+
 ```bash
 docker compose up --build
 ```
- 
-
- 
