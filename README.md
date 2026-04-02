@@ -75,6 +75,17 @@ uvicorn fred_query.api.app:app --reload
 ```
  
 Then open [http://127.0.0.1:8000](http://127.0.0.1:8000).
+
+### Run Live Intent Evals
+
+These evals call the real OpenAI parser and are skipped during normal test runs unless you opt in.
+
+```bash
+python -m pytest tests/evals/test_intent_evals.py --run-evals -q
+python -m pytest tests/evals/test_intent_evals.py --run-evals -q --eval-model gpt-4.1-mini
+```
+
+The eval harness prints a pass/fail scorecard at the end so you can compare parser behavior across models without mixing token spend into the normal unit-test loop.
  
 ### Run with Docker
  

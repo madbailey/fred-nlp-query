@@ -27,3 +27,8 @@ fred_query = ["api/static/*.html", "api/static/*.css", "api/static/*.js"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+markers = [
+    "evals: live OpenAI-backed intent parser evaluations that are skipped unless --run-evals is set",
+]
