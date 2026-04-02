@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import re
 
 from fred_query.schemas.intent import QueryIntent, TaskType
@@ -129,8 +130,6 @@ class ClarificationResolver:
         "constant dollar",
         "constant dollars",
         "inflation-adjusted",
-        "real ",
-        " real",
     )
     _NOMINAL_TERMS = (
         "current dollar",
@@ -277,25 +276,28 @@ class ClarificationResolver:
             wants_seasonally_adjusted=wants_seasonally_adjusted,
         )
 
-    @classmethod
-    def _extract_candidate_features(cls, candidate: SeriesSearchMatch) -> _ClarificationCandidateFeatures:
-        text = cls._candidate_text(candidate)
-        has_growth_rate = cls._text_has_any(text, cls._GROWTH_RATE_TERMS)
+    @staticmethod
+    @lru_cache(maxsize=1024)
+    def _extract_candidate_features_from_text(text: str) -> _ClarificationCandidateFeatures:
+        has_growth_rate = ClarificationResolver._text_has_any(text, ClarificationResolver._GROWTH_RATE_TERMS)
         return _ClarificationCandidateFeatures(
             normalized_text=text,
-            has_real=cls._has_real_signal(text),
-            has_nominal=cls._text_has_any(text, cls._NOMINAL_TERMS),
+            has_real=ClarificationResolver._has_real_signal(text),
+            has_nominal=ClarificationResolver._text_has_any(text, ClarificationResolver._NOMINAL_TERMS),
             has_growth_rate=has_growth_rate,
             has_index_level="index" in text and not has_growth_rate,
-            has_per_capita=cls._text_has_any(text, cls._PER_CAPITA_TERMS),
-            has_market_based_signal=cls._text_has_any(text, cls._MARKET_BASED_TERMS),
-            has_instrument_terms=any(term in text for term in cls._INSTRUMENT_TERMS),
+            has_per_capita=ClarificationResolver._text_has_any(text, ClarificationResolver._PER_CAPITA_TERMS),
+            has_market_based_signal=ClarificationResolver._text_has_any(text, ClarificationResolver._MARKET_BASED_TERMS),
+            has_instrument_terms=any(term in text for term in ClarificationResolver._INSTRUMENT_TERMS),
             has_core=(
                 "core" in text
                 or "less food and energy" in text
                 or "excluding food and energy" in text
             ),
-            has_pce="personal consumption expenditures" in text or re.search(r"\bpce\b", text) is not None,
+            has_pce=(
+                "personal consumption expenditures" in text
+                or re.search(r"\bpce\b", text) is not None
+            ),
             has_cpi="consumer price index" in text or re.search(r"\bcpi\b", text) is not None,
             has_trimmed_mean="trimmed mean" in text,
             has_ppi="producer price" in text or re.search(r"\bppi\b", text) is not None,
@@ -303,8 +305,15 @@ class ClarificationResolver:
         )
 
     @classmethod
+    def _extract_candidate_features(cls, candidate: SeriesSearchMatch) -> _ClarificationCandidateFeatures:
+        text = cls._candidate_text(candidate)
+        return cls._extract_candidate_features_from_text(text)
+
+    @classmethod
     def _has_real_signal(cls, text: str) -> bool:
         if cls._text_has_any(text, cls._REAL_TERMS):
+            return True
+        if re.search(r"\breal\b", text) is not None:
             return True
         return re.search(r"\bchained\b.+\bdollar", text) is not None
 
@@ -450,16 +459,19 @@ class ClarificationResolver:
         )
         return score
 
-    @staticmethod
-    def _candidate_title_key(candidate: SeriesSearchMatch) -> str:
+    @classmethod
+    def _candidate_title_key(cls, candidate: SeriesSearchMatch) -> str:
         title_key = re.sub(r"\s+", " ", candidate.title.strip().lower())
-        features = ClarificationResolver._extract_candidate_features(candidate)
+        features = cls._extract_candidate_features(candidate)
+        seasonality = cls._candidate_is_seasonally_adjusted(candidate)
         semantic_parts = [
             "growth" if features.has_growth_rate else "level",
             "real" if features.has_real else "",
             "nominal" if features.has_nominal else "",
             "per_capita" if features.has_per_capita else "",
             "market" if features.has_market_based_signal or features.has_instrument_terms else "",
+            "sa" if seasonality is True else "",
+            "nsa" if seasonality is False else "",
         ]
         semantic_key = "|".join(part for part in semantic_parts if part)
         return f"{title_key}|{semantic_key}"
@@ -747,10 +759,20 @@ class ClarificationResolver:
             return "Producer Prices"
         if candidate_features.has_deflator:
             return "Price Deflator"
+        if candidate_features.has_real and candidate_features.has_per_capita and candidate_features.has_growth_rate:
+            return "Real Per Capita Growth Rate"
+        if candidate_features.has_nominal and candidate_features.has_per_capita and candidate_features.has_growth_rate:
+            return "Nominal Per Capita Growth Rate"
+        if candidate_features.has_per_capita and candidate_features.has_growth_rate:
+            return "Per Capita Growth Rate"
         if candidate_features.has_real and candidate_features.has_growth_rate:
             return "Real Growth Rate"
         if candidate_features.has_nominal and candidate_features.has_growth_rate:
             return "Nominal Growth Rate"
+        if candidate_features.has_real and candidate_features.has_per_capita:
+            return "Real Per Capita Series"
+        if candidate_features.has_nominal and candidate_features.has_per_capita:
+            return "Nominal Per Capita Series"
         if candidate_features.has_real:
             return "Real Series"
         if candidate_features.has_nominal:
@@ -794,6 +816,30 @@ class ClarificationResolver:
             return "units"
         return "metadata"
 
+    def _annotated_candidate_update(
+        self,
+        candidate: SeriesSearchMatch,
+        *,
+        search_text: str | None,
+    ) -> dict[str, object]:
+        label = self._selection_label_for_candidate(candidate)
+        hint = self._selection_hint_for_candidate(candidate, search_text=search_text)
+        badges = self._selection_badges_for_candidate(candidate)
+        return {
+            "selection_label": label,
+            "selection_hint": hint,
+            "selection_badges": badges,
+            "clarification_option": ClarificationOption(
+                label=label or candidate.title,
+                title=candidate.title,
+                hint=hint,
+                badges=[
+                    ClarificationBadge(kind=self._clarification_badge_kind(badge), label=badge)
+                    for badge in badges
+                ],
+            ),
+        }
+
     def annotate_candidates(
         self,
         candidates: list[SeriesSearchMatch],
@@ -804,20 +850,7 @@ class ClarificationResolver:
         search_text = context.search_text if context is not None else self.clarification_search_text(intent)
         return [
             candidate.model_copy(
-                update={
-                    "selection_label": (label := self._selection_label_for_candidate(candidate)),
-                    "selection_hint": (hint := self._selection_hint_for_candidate(candidate, search_text=search_text)),
-                    "selection_badges": (badges := self._selection_badges_for_candidate(candidate)),
-                    "clarification_option": ClarificationOption(
-                        label=label or candidate.title,
-                        title=candidate.title,
-                        hint=hint,
-                        badges=[
-                            ClarificationBadge(kind=self._clarification_badge_kind(badge), label=badge)
-                            for badge in badges
-                        ],
-                    ),
-                }
+                update=self._annotated_candidate_update(candidate, search_text=search_text)
             )
             for candidate in candidates
         ]
