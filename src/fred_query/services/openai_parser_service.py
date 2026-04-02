@@ -58,7 +58,7 @@ class OpenAIIntentParser:
         *,
         api_key: str,
         model: str = "gpt-5.4-mini",
-        reasoning_effort: str = "low",
+        reasoning_effort: str | None = "low",
         client: OpenAI | None = None,
     ) -> None:
         if not api_key and client is None:
@@ -83,13 +83,18 @@ class OpenAIIntentParser:
 
     def _parse_input(self, parser_input: str, *, original_query: str) -> QueryIntent:
         try:
+            request_kwargs = {
+                "model": self.model,
+                "instructions": PARSER_INSTRUCTIONS,
+                "input": parser_input,
+                "text_format": QueryIntent,
+                "store": False,
+            }
+            if self.reasoning_effort and self.reasoning_effort.lower() not in {"none", "off"}:
+                request_kwargs["reasoning"] = {"effort": self.reasoning_effort}
+
             response = self.client.responses.parse(
-                model=self.model,
-                instructions=PARSER_INSTRUCTIONS,
-                input=parser_input,
-                text_format=QueryIntent,
-                reasoning={"effort": self.reasoning_effort},
-                store=False,
+                **request_kwargs,
             )
         except Exception as exc:
             raise IntentParsingError(f"Natural-language parsing failed: {exc}") from exc

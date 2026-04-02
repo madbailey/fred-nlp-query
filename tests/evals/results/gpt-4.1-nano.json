@@ -1,0 +1,75 @@
+{
+  "model": "gpt-4.1-nano",
+  "reasoning_effort": "none",
+  "passed": 7,
+  "total": 11,
+  "pass_rate": 0.6363636363636364,
+  "results": [
+    {
+      "case_id": "unemployment_since_2020",
+      "query": "Show me unemployment since 2020",
+      "passed": true,
+      "details": "task_type='single_series_lookup', transform='level', clarification_needed=False, search='unemployment'"
+    },
+    {
+      "case_id": "unemployment_yoy_since_2020",
+      "query": "Show me unemployment year over year since 2020",
+      "passed": false,
+      "details": "task_type='single_series_lookup', transform='year_over_year_percent_change', clarification_needed=False, search='<none>'; combined search text missing fragments ['unemployment']; actual=''"
+    },
+    {
+      "case_id": "compare_inflation_and_wages",
+      "query": "Compare inflation and wages",
+      "passed": false,
+      "details": "task_type='relationship_analysis', transform='level', clarification_needed=True, search='<none>'; expected task_type='multi_series_comparison', got 'relationship_analysis'; expected search_texts_count=2, got 0"
+    },
+    {
+      "case_id": "compare_california_texas_gdp",
+      "query": "Compare California and Texas GDP since 2019",
+      "passed": true,
+      "details": "task_type='state_gdp_comparison', transform='level', clarification_needed=False, search='<none>'"
+    },
+    {
+      "case_id": "highest_state_gdp",
+      "query": "Which state has the highest GDP?",
+      "passed": true,
+      "details": "task_type='cross_section', transform='level', clarification_needed=False, search='state GDP state GDP'"
+    },
+    {
+      "case_id": "lowest_state_unemployment",
+      "query": "Which state has the lowest unemployment rate?",
+      "passed": true,
+      "details": "task_type='cross_section', transform='level', clarification_needed=False, search='unemployment rate by state unemployment rate by state'"
+    },
+    {
+      "case_id": "inflation_january_2023",
+      "query": "What was inflation in January 2023?",
+      "passed": true,
+      "details": "task_type='cross_section', transform='level', clarification_needed=False, search='inflation inflation rate'"
+    },
+    {
+      "case_id": "top_5_state_labor_force_participation",
+      "query": "Rank the top 5 states by labor force participation rate",
+      "passed": false,
+      "details": "task_type='cross_section', transform='level', clarification_needed=True, search='<none>'; expected clarification_needed=False, got True; combined search text missing fragments ['labor force']; actual=''"
+    },
+    {
+      "case_id": "sp500_volatility_30_days",
+      "query": "How volatile has the S&P 500 been over the last 30 days?",
+      "passed": true,
+      "details": "task_type='single_series_lookup', transform='rolling_volatility', clarification_needed=False, search='S&P 500 volatility S&P 500'"
+    },
+    {
+      "case_id": "brent_vs_cpi_relationship",
+      "query": "What is the relationship between Brent crude oil and CPI inflation?",
+      "passed": false,
+      "details": "task_type='relationship_analysis', transform='level', clarification_needed=True, search='Brent crude oil CPI inflation'; expected clarification_needed=False, got True"
+    },
+    {
+      "case_id": "explicit_series_id",
+      "query": "Show me FRED series UNRATE since 2020",
+      "passed": true,
+      "details": "task_type='single_series_lookup', transform='level', clarification_needed=False, search='UNRATE'"
+    }
+  ]
+}
