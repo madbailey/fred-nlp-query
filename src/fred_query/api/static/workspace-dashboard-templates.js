@@ -117,7 +117,7 @@ function renderStoryLayout(insight, { includeChart = false } = {}) {
     }
 
     return `
-        <section class="dashboard-story-grid">
+        <section class="dashboard-story-grid${includeChart ? " has-chart" : ""}">
             ${insight ? renderInsight(insight) : ""}
             ${includeChart
                 ? `

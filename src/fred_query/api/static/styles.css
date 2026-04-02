@@ -695,9 +695,13 @@ h1 {
 
 .dashboard-story-grid {
     display: grid;
-    grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
+    grid-template-columns: 1fr;
     gap: 18px;
     align-items: stretch;
+}
+
+.dashboard-story-grid.has-chart {
+    grid-template-columns: minmax(260px, 0.6fr) minmax(0, 1.4fr);
 }
 
 .dashboard-story-grid > * {
@@ -802,7 +806,7 @@ h1 {
 
 .dashboard-insight-lead {
     margin: 0;
-    max-width: 48ch;
+    max-width: 56ch;
     font-size: 20px;
     line-height: 1.35;
     font-weight: 500;
@@ -960,7 +964,15 @@ h1 {
     color: var(--text-secondary);
 }
 
-.dashboard-pair-value,
+.dashboard-pair-value {
+    margin: 0;
+    font-family: "Space Mono", monospace;
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    color: var(--text-display);
+}
+
 .dashboard-ranking-value {
     margin: 0;
     font-family: "Space Mono", monospace;
@@ -970,7 +982,13 @@ h1 {
     color: var(--text-display);
 }
 
-.dashboard-pair-note,
+.dashboard-pair-note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
 .dashboard-ranking-label {
     margin: 0;
     font-size: 14px;
@@ -982,6 +1000,8 @@ h1 {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
 }
 
 .dashboard-ranking-panel {
@@ -1259,7 +1279,17 @@ h1 {
 .chart-panel.is-dashboard-embedded {
     height: 100%;
     padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-compact);
     background: var(--surface-raised);
+}
+
+.chart-panel.is-dashboard-embedded .chart {
+    min-height: clamp(240px, 30vh, 340px);
+}
+
+.chart-panel.is-dashboard-embedded .source-note {
+    display: none;
 }
 
 .chart-header {
@@ -1641,7 +1671,7 @@ h1 {
         grid-template-columns: 1fr;
     }
 
-    .dashboard-story-grid {
+    .dashboard-story-grid.has-chart {
         grid-template-columns: 1fr;
     }
 
