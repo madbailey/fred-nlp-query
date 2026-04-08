@@ -86,6 +86,11 @@ class ResolverService:
     """Resolve deterministic series mappings for the first workflow."""
 
     _SEARCH_CANDIDATE_LIMIT = 15
+    _SEMANTIC_PROFILES = {
+        "plain_inflation": {
+            "scorer_method": "_score_plain_inflation_profile",
+        },
+    }
     _RANKING_WEIGHTS = {
         "frequency_match": 1.75,
         "frequency_mismatch": 0.75,
@@ -95,11 +100,11 @@ class ResolverService:
         "indicator_exact_phrase_match": 2.5,
         "indicator_title_term_match": 2.0,
         "indicator_full_text_term_match": 1.0,
-        "plain_inflation_base_index_bonus": 3.0,
-        "plain_inflation_specialized_penalty": 2.0,
-        "plain_inflation_cpi_bonus": 1.0,
-        "plain_inflation_pce_bonus": 0.5,
-        "plain_inflation_breakeven_penalty": 2.0,
+        "profile_plain_inflation_base_index_bonus": 3.0,
+        "profile_plain_inflation_specialized_penalty": 2.0,
+        "profile_plain_inflation_cpi_bonus": 1.0,
+        "profile_plain_inflation_pce_bonus": 0.5,
+        "profile_plain_inflation_breakeven_penalty": 2.0,
         "search_rank_base_bonus": 2.0,
         "search_rank_decay": 0.15,
         "confidence_single_candidate": 0.72,
@@ -271,23 +276,39 @@ class ResolverService:
         search_text: str,
         indicator: str,
     ) -> float:
+        score = 0.0
         search_variants = [value for value in [search_text, indicator] if value]
+        for profile_name in cls._semantic_profile_names(search_variants):
+            scorer_method_name = cls._SEMANTIC_PROFILES[profile_name]["scorer_method"]
+            scorer = getattr(cls, scorer_method_name)
+            score += scorer(candidate)
+        return score
+
+    @classmethod
+    def _semantic_profile_names(cls, search_variants: list[str]) -> list[str]:
+        profile_names: list[str] = []
         if is_plain_inflation_request(search_variants):
-            score = 0.0
-            if is_base_price_index(candidate):
-                score += cls._RANKING_WEIGHTS["plain_inflation_base_index_bonus"]
-            if has_specialized_inflation_variant(candidate):
-                score -= cls._RANKING_WEIGHTS["plain_inflation_specialized_penalty"]
-            candidate_features = extract_candidate_features(candidate)
-            if candidate_features.has_cpi:
-                score += cls._RANKING_WEIGHTS["plain_inflation_cpi_bonus"]
-            elif candidate_features.has_pce:
-                score += cls._RANKING_WEIGHTS["plain_inflation_pce_bonus"]
-            candidate_text = cls._candidate_text(candidate)
-            if "breakeven" in candidate_text:
-                score -= cls._RANKING_WEIGHTS["plain_inflation_breakeven_penalty"]
-            return score
-        return 0.0
+            profile_names.append("plain_inflation")
+        return profile_names
+
+    @classmethod
+    def _score_plain_inflation_profile(cls, candidate: SeriesSearchMatch) -> float:
+        score = 0.0
+        if is_base_price_index(candidate):
+            score += cls._RANKING_WEIGHTS["profile_plain_inflation_base_index_bonus"]
+        if has_specialized_inflation_variant(candidate):
+            score -= cls._RANKING_WEIGHTS["profile_plain_inflation_specialized_penalty"]
+
+        candidate_features = extract_candidate_features(candidate)
+        if candidate_features.has_cpi:
+            score += cls._RANKING_WEIGHTS["profile_plain_inflation_cpi_bonus"]
+        elif candidate_features.has_pce:
+            score += cls._RANKING_WEIGHTS["profile_plain_inflation_pce_bonus"]
+
+        candidate_text = cls._candidate_text(candidate)
+        if "breakeven" in candidate_text:
+            score -= cls._RANKING_WEIGHTS["profile_plain_inflation_breakeven_penalty"]
+        return score
 
     def _rank_search_matches(
         self,
