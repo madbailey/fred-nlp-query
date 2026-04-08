@@ -1,64 +1,432 @@
-[
-  {
-    "id": "employment_since_2020",
-    "query": "Show me employment since 2020",
-    "expect": {
-      "task_type": "single_series_lookup",
-      "search_text_contains_any": ["employment", "payroll"],
-      "start_date": "2020-01-01",
-      "clarification_needed": false
+{
+  "version": 2,
+  "suite": "clarification-trigger",
+  "families": [
+    {
+      "family": "single_series_ambiguity",
+      "description": "Single-series prompts that should clarify broad or overloaded indicator language.",
+      "cases": {
+        "supported": [
+          {
+            "id": "clar_ss_supported_employment_2020",
+            "query": "Show me employment since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "employment",
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "clar_ss_supported_nsa_unemployment_2020",
+            "query": "Show me the not seasonally adjusted unemployment rate since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "unemployment",
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "clar_ss_supported_real_income_2018",
+            "query": "Show me real personal income per capita since 2018",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "personal income",
+              "start_date": "2018-01-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "clar_ss_housing_2020",
+            "query": "Show me housing since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "housing",
+              "start_date": "2020-01-01",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "clar_ss_prices_2020",
+            "query": "Show me prices since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "prices",
+              "start_date": "2020-01-01",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "clar_ss_credit_2019",
+            "query": "Show me credit since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "credit",
+              "start_date": "2019-01-01",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "clar_ss_forecast_housing",
+            "query": "Forecast housing through next year",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "housing",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "clar_ss_explain_prices",
+            "query": "Explain prices since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "prices",
+              "start_date": "2020-01-01",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "clar_ss_predict_jobs",
+            "query": "Predict jobs for 2027",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "jobs",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "cross_section_ambiguity",
+      "description": "Cross-section prompts where the ranking shape is clear but the indicator is missing or unsupported.",
+      "cases": {
+        "supported": [
+          {
+            "id": "clar_xs_supported_top5_lfpr",
+            "query": "Rank the top 5 states by labor force participation rate",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "labor force",
+              "rank_limit": 5,
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "clar_xs_supported_lowest_unemployment",
+            "query": "Which state has the lowest unemployment rate?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "unemployment",
+              "sort_descending": false,
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "clar_xs_supported_inflation_jan2023",
+            "query": "What was inflation in January 2023?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "inflation",
+              "observation_date": "2023-01-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "clar_xs_highest_now",
+            "query": "Which state is highest right now?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_xs_top5_states",
+            "query": "Rank the top 5 states",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "rank_limit": 5,
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_xs_value_jan2023",
+            "query": "What was the value in January 2023?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "observation_date": "2023-01-01",
+              "clarification_needed": true
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "clar_xs_best_state",
+            "query": "Which state is best economically?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_xs_move_state",
+            "query": "Which state should I move to for a better economy?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_xs_future_unemployment",
+            "query": "Which state will have the worst unemployment next year?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "unemployment",
+              "clarification_needed": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "multi_series_ambiguity",
+      "description": "Comparison prompts that are either specific enough to proceed or broad enough to require disambiguation.",
+      "cases": {
+        "supported": [
+          {
+            "id": "clar_ms_supported_real_nominal_gdp",
+            "query": "Compare real GDP and nominal GDP since 2015",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "real gdp",
+                "nominal gdp"
+              ],
+              "start_date": "2015-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "clar_ms_supported_house_mortgage",
+            "query": "Compare house prices and mortgage rates since 2012",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "house",
+                "mortgage"
+              ],
+              "start_date": "2012-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "clar_ms_supported_exports_imports",
+            "query": "Compare exports and imports since 2014",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "exports",
+                "imports"
+              ],
+              "start_date": "2014-01-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "clar_ms_inflation_wages",
+            "query": "Compare inflation and wages",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_ms_prices_jobs",
+            "query": "Compare prices and jobs since 2020",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "start_date": "2020-01-01",
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_ms_housing_credit",
+            "query": "Compare housing and credit since 2015",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "start_date": "2015-01-01",
+              "clarification_needed": true
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "clar_ms_compare_one_target",
+            "query": "Compare inflation",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "clar_ms_compare_forecasts",
+            "query": "Compare inflation forecasts and unemployment forecasts",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_ms_compare_everything",
+            "query": "Compare housing with everything else",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "relationship_ambiguity",
+      "description": "Relationship prompts that exercise clear pairs, broad pairs, and unsupported causal/forecast asks.",
+      "cases": {
+        "supported": [
+          {
+            "id": "clar_rel_supported_brent_cpi",
+            "query": "What is the relationship between Brent crude oil and CPI inflation?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "brent",
+                "inflation"
+              ],
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "clar_rel_supported_house_mortgage",
+            "query": "What is the relationship between house prices and mortgage rates since 2012?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "house",
+                "mortgage"
+              ],
+              "start_date": "2012-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "clar_rel_supported_payroll_unrate",
+            "query": "How does payroll employment relate to the unemployment rate since 2010?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "employment",
+                "unemployment"
+              ],
+              "start_date": "2010-01-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "clar_rel_housing_rates",
+            "query": "What is the relationship between housing and rates?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_rel_prices_jobs",
+            "query": "How do prices relate to jobs since 2020?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "start_date": "2020-01-01",
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_rel_income_costs",
+            "query": "What is the relationship between income and costs?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "clar_rel_single_target",
+            "query": "What is the relationship with inflation?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "clar_rel_causal",
+            "query": "Why does inflation cause unemployment?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "clar_rel_forecast",
+            "query": "Will oil prices and inflation move together next year?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          }
+        ]
+      }
     }
-  },
-  {
-    "id": "housing_since_2020",
-    "query": "Show me housing since 2020",
-    "expect": {
-      "task_type": "single_series_lookup",
-      "search_text_contains": "housing",
-      "start_date": "2020-01-01",
-      "clarification_needed": true,
-      "clarification_target_index": 0
-    }
-  },
-  {
-    "id": "nsa_unemployment_since_2020",
-    "query": "Show me the not seasonally adjusted unemployment rate since 2020",
-    "expect": {
-      "task_type": "single_series_lookup",
-      "search_text_contains": "unemployment",
-      "start_date": "2020-01-01",
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "real_personal_income_per_capita_since_2018",
-    "query": "Show me real personal income per capita since 2018",
-    "expect": {
-      "task_type": "single_series_lookup",
-      "search_text_contains_any": ["personal income", "per capita"],
-      "start_date": "2018-01-01",
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "compare_real_and_nominal_gdp_since_2015",
-    "query": "Compare real GDP and nominal GDP since 2015",
-    "expect": {
-      "task_type": "multi_series_comparison",
-      "search_texts_count": 2,
-      "search_texts_include": ["real gdp", "nominal gdp"],
-      "start_date": "2015-01-01",
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "house_prices_vs_mortgage_rates",
-    "query": "What is the relationship between house prices and mortgage rates since 2012?",
-    "expect": {
-      "task_type": "relationship_analysis",
-      "search_texts_count": 2,
-      "search_texts_include": ["house", "mortgage"],
-      "start_date": "2012-01-01"
-    }
-  }
-]
+  ]
+}

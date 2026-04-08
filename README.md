@@ -96,7 +96,9 @@ python -m pytest tests/evals/test_clarification_trigger_evals.py --run-evals -q 
 python -m pytest tests/test_clarification_resolver_eval_cases.py -q
 ```
 
-The evals now split into three layers:
+The eval fixtures are grouped by query family and labeled as `supported`, `clarification`, or `unsupported` so the corpus can cover parser breadth without losing structure.
+
+The evals split into three layers:
 
 - `test_intent_evals.py`: broad parser behavior
 - `test_clarification_trigger_evals.py`: parser-side clarification triggering

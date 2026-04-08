@@ -30,7 +30,24 @@ class EvalResult:
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        return payload
+
+    if not isinstance(payload, dict) or "families" not in payload:
+        raise ValueError(f"Unsupported eval fixture format in {path}")
+
+    cases: list[dict[str, Any]] = []
+    for family in payload["families"]:
+        family_name = family["family"]
+        family_cases = family.get("cases", {})
+        for case_label in ("supported", "clarification", "unsupported"):
+            for case in family_cases.get(case_label, []):
+                enriched_case = dict(case)
+                enriched_case.setdefault("family", family_name)
+                enriched_case.setdefault("case_label", case_label)
+                cases.append(enriched_case)
+    return cases
 
 
 def _enum_value(value: Any) -> Any:
