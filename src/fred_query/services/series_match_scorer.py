@@ -98,6 +98,30 @@ MARKET_BASED_TERMS = (
     "inflation-indexed",
     "market-based",
 )
+SCORE_WEIGHTS = {
+    "query_wants_real_match": 2.0,
+    "query_wants_real_penalty": 1.5,
+    "query_wants_nominal_match": 2.0,
+    "query_wants_nominal_penalty": 1.5,
+    "query_wants_growth_match": 1.5,
+    "query_wants_growth_penalty": 0.5,
+    "query_wants_per_capita_match": 1.5,
+    "query_wants_per_capita_penalty": 0.5,
+    "query_wants_market_based_match": 1.5,
+    "unexpected_instrument_penalty": 1.5,
+    "seasonal_adjustment_match": 1.0,
+    "seasonal_adjustment_penalty": 0.5,
+    "inflation_base_index_bonus": 2.5,
+    "inflation_specialized_penalty": 2.0,
+    "inflation_unwanted_instrument_penalty": 0.5,
+    "anchor_term_title_match": 3.0,
+    "anchor_term_full_text_match": 1.0,
+    "exact_phrase_match": 5.0,
+    "partial_phrase_match": 3.5,
+    "popularity_divisor": 25.0,
+    "popularity_cap": 2.0,
+    "no_title_match_penalty": 2.0,
+}
 
 
 @dataclass(frozen=True)
@@ -332,45 +356,45 @@ def generic_score_adjustment(
 
     if query_features.wants_real:
         if candidate_features.has_real:
-            score += 2.0
+            score += SCORE_WEIGHTS["query_wants_real_match"]
         elif candidate_features.has_nominal:
-            score -= 1.5
+            score -= SCORE_WEIGHTS["query_wants_real_penalty"]
 
     if query_features.wants_nominal:
         if candidate_features.has_nominal:
-            score += 2.0
+            score += SCORE_WEIGHTS["query_wants_nominal_match"]
         elif candidate_features.has_real:
-            score -= 1.5
+            score -= SCORE_WEIGHTS["query_wants_nominal_penalty"]
 
     if query_features.wants_growth_rate:
         if candidate_features.has_growth_rate:
-            score += 1.5
+            score += SCORE_WEIGHTS["query_wants_growth_match"]
         elif candidate_features.has_index_level:
-            score -= 0.5
+            score -= SCORE_WEIGHTS["query_wants_growth_penalty"]
 
     if query_features.wants_per_capita:
         if candidate_features.has_per_capita:
-            score += 1.5
+            score += SCORE_WEIGHTS["query_wants_per_capita_match"]
         else:
-            score -= 0.5
+            score -= SCORE_WEIGHTS["query_wants_per_capita_penalty"]
 
     if query_features.wants_market_based:
         if candidate_features.has_market_based_signal or candidate_features.has_instrument_terms:
-            score += 1.5
+            score += SCORE_WEIGHTS["query_wants_market_based_match"]
     elif candidate_features.has_instrument_terms:
-        score -= 1.5
+        score -= SCORE_WEIGHTS["unexpected_instrument_penalty"]
 
     seasonally_adjusted = candidate_is_seasonally_adjusted(candidate)
     if query_features.wants_seasonally_adjusted is True:
         if seasonally_adjusted is True:
-            score += 1.0
+            score += SCORE_WEIGHTS["seasonal_adjustment_match"]
         elif seasonally_adjusted is False:
-            score -= 0.5
+            score -= SCORE_WEIGHTS["seasonal_adjustment_penalty"]
     elif query_features.wants_seasonally_adjusted is False:
         if seasonally_adjusted is False:
-            score += 1.0
+            score += SCORE_WEIGHTS["seasonal_adjustment_match"]
         elif seasonally_adjusted is True:
-            score -= 0.5
+            score -= SCORE_WEIGHTS["seasonal_adjustment_penalty"]
 
     return score
 
@@ -441,11 +465,11 @@ def inflation_profile_score_adjustment(
 
     score = 0.0
     if is_base_price_index(candidate):
-        score += 2.5
+        score += SCORE_WEIGHTS["inflation_base_index_bonus"]
     if has_specialized_inflation_variant(candidate):
-        score -= 2.0
+        score -= SCORE_WEIGHTS["inflation_specialized_penalty"]
     if candidate_features.has_instrument_terms and not context.query_features.wants_market_based:
-        score -= 0.5
+        score -= SCORE_WEIGHTS["inflation_unwanted_instrument_penalty"]
     return score
 
 
@@ -470,30 +494,33 @@ def score_candidate(
     title_matches = 0
     for term in context.anchor_terms:
         if term in title_text:
-            score += 3.0
+            score += SCORE_WEIGHTS["anchor_term_title_match"]
             title_matches += 1
         elif term in full_text:
-            score += 1.0
+            score += SCORE_WEIGHTS["anchor_term_full_text_match"]
 
     for phrase in context.search_variants:
         lowered_phrase = phrase.lower().strip()
         if not lowered_phrase:
             continue
         if lowered_phrase in full_text:
-            score += 5.0
+            score += SCORE_WEIGHTS["exact_phrase_match"]
             continue
 
         phrase_terms = significant_terms([phrase])
         if phrase_terms:
             matched_terms = sum(1 for term in phrase_terms if term in title_text)
             if matched_terms >= max(1, min(2, len(phrase_terms))):
-                score += 3.5
+                score += SCORE_WEIGHTS["partial_phrase_match"]
 
     if candidate.popularity is not None:
-        score += min(candidate.popularity / 25.0, 2.0)
+        score += min(
+            candidate.popularity / SCORE_WEIGHTS["popularity_divisor"],
+            SCORE_WEIGHTS["popularity_cap"],
+        )
 
     if title_matches == 0:
-        score -= 2.0
+        score -= SCORE_WEIGHTS["no_title_match_penalty"]
 
     score += generic_score_adjustment(candidate, candidate_features, context=context)
     score += inflation_profile_score_adjustment(

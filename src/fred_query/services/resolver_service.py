@@ -87,6 +87,26 @@ class ResolverService:
     """Resolve deterministic series mappings for the first workflow."""
 
     _SEARCH_CANDIDATE_LIMIT = 15
+    _RANKING_WEIGHTS = {
+        "frequency_match": 1.75,
+        "frequency_mismatch": 0.75,
+        "geography_exact_match": 3.0,
+        "geography_partial_match": 1.5,
+        "geography_missing_penalty": 1.0,
+        "indicator_exact_phrase_match": 2.5,
+        "indicator_title_term_match": 2.0,
+        "indicator_full_text_term_match": 1.0,
+        "plain_inflation_base_index_bonus": 3.0,
+        "plain_inflation_specialized_penalty": 2.0,
+        "plain_inflation_cpi_bonus": 1.0,
+        "plain_inflation_pce_bonus": 0.5,
+        "plain_inflation_breakeven_penalty": 2.0,
+        "search_rank_base_bonus": 2.0,
+        "search_rank_decay": 0.15,
+        "resolved_score_floor": 0.55,
+        "resolved_score_scale": 20.0,
+        "resolved_score_cap": 0.99,
+    }
     _STOP_WORDS = {
         "a",
         "an",
@@ -185,9 +205,9 @@ class ResolverService:
             if term not in query_text:
                 continue
             if any(alias in normalized_frequency for alias in aliases):
-                score += 1.75
+                score += cls._RANKING_WEIGHTS["frequency_match"]
             else:
-                score -= 0.75
+                score -= cls._RANKING_WEIGHTS["frequency_mismatch"]
         return score
 
     @classmethod
@@ -211,11 +231,11 @@ class ResolverService:
 
         matched_terms = sum(1 for term in geography_terms if term in candidate_text)
         if matched_terms == len(geography_terms):
-            return 3.0
+            return cls._RANKING_WEIGHTS["geography_exact_match"]
         if matched_terms > 0:
-            return 1.5
+            return cls._RANKING_WEIGHTS["geography_partial_match"]
         if any(term in query_text for term in geography_terms):
-            return -1.0
+            return -cls._RANKING_WEIGHTS["geography_missing_penalty"]
         return 0.0
 
     @classmethod
@@ -226,7 +246,7 @@ class ResolverService:
 
         candidate_text = cls._candidate_text(candidate)
         if phrase in candidate_text:
-            return 2.5
+            return cls._RANKING_WEIGHTS["indicator_exact_phrase_match"]
 
         terms = cls._significant_terms(indicator)
         if not terms:
@@ -236,9 +256,9 @@ class ResolverService:
         title_matches = sum(1 for term in terms if term in title_text)
         full_matches = sum(1 for term in terms if term in candidate_text)
         if title_matches >= max(1, min(2, len(terms))):
-            return 2.0
+            return cls._RANKING_WEIGHTS["indicator_title_term_match"]
         if full_matches >= max(1, min(2, len(terms))):
-            return 1.0
+            return cls._RANKING_WEIGHTS["indicator_full_text_term_match"]
         return 0.0
 
     @classmethod
@@ -253,17 +273,17 @@ class ResolverService:
         if is_plain_inflation_request(search_variants):
             score = 0.0
             if is_base_price_index(candidate):
-                score += 3.0
+                score += cls._RANKING_WEIGHTS["plain_inflation_base_index_bonus"]
             if has_specialized_inflation_variant(candidate):
-                score -= 2.0
+                score -= cls._RANKING_WEIGHTS["plain_inflation_specialized_penalty"]
             candidate_features = extract_candidate_features(candidate)
             if candidate_features.has_cpi:
-                score += 1.0
+                score += cls._RANKING_WEIGHTS["plain_inflation_cpi_bonus"]
             elif candidate_features.has_pce:
-                score += 0.5
+                score += cls._RANKING_WEIGHTS["plain_inflation_pce_bonus"]
             candidate_text = cls._candidate_text(candidate)
             if "breakeven" in candidate_text:
-                score -= 2.0
+                score -= cls._RANKING_WEIGHTS["plain_inflation_breakeven_penalty"]
             return score
         return 0.0
 
@@ -306,7 +326,11 @@ class ResolverService:
 
         ranked: list[tuple[float, SeriesSearchMatch]] = []
         for rank, candidate in enumerate(matches):
-            score = max(0.0, 2.0 - (rank * 0.15))
+            score = max(
+                0.0,
+                self._RANKING_WEIGHTS["search_rank_base_bonus"]
+                - (rank * self._RANKING_WEIGHTS["search_rank_decay"]),
+            )
             if context is not None:
                 score += score_candidate(candidate, context=context)
             score += self._frequency_score(candidate, query_text=query_text)
@@ -362,7 +386,14 @@ class ResolverService:
 
         winner_score, search_match = ranked_matches[0]
         metadata = self.fred_client.get_series_metadata(search_match.series_id)
-        normalized_score = min(0.99, max(0.55, 0.55 + (winner_score / 20.0)))
+        normalized_score = min(
+            self._RANKING_WEIGHTS["resolved_score_cap"],
+            max(
+                self._RANKING_WEIGHTS["resolved_score_floor"],
+                self._RANKING_WEIGHTS["resolved_score_floor"]
+                + (winner_score / self._RANKING_WEIGHTS["resolved_score_scale"]),
+            ),
+        )
         resolution_reason = (
             search_resolution_reason
             or "Resolved the query via reranked FRED search candidates. Best match from the top {candidate_count} hits was {series_id}."
