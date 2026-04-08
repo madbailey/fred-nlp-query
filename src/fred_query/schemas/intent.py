@@ -218,10 +218,11 @@ class QueryIntent(BaseModel):
         return QueryOutputMode.TIME_SERIES
 
     def _is_state_gdp_comparison_plan(self, query_plan: QueryPlan) -> bool:
-        if self.task_type == TaskType.STATE_GDP_COMPARISON:
-            return True
         if len(self.geographies) != 2:
             return False
         if any(item.geography_type != GeographyType.STATE for item in self.geographies):
             return False
-        return any("gdp" in subject.lower() for subject in query_plan.subjects)
+        subjects = [subject.strip().lower() for subject in query_plan.subjects if subject and subject.strip()]
+        if not subjects:
+            return self.task_type == TaskType.STATE_GDP_COMPARISON
+        return all("gdp" in subject for subject in subjects)

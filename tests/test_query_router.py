@@ -7,6 +7,8 @@ from fred_query.schemas.analysis import AnalysisResult, QueryResponse, RoutedQue
 from fred_query.schemas.chart import AxisSpec, ChartSpec
 from fred_query.schemas.intent import (
     ComparisonMode,
+    Geography,
+    GeographyType,
     QueryIntent,
     QueryOperator,
     QueryOutputMode,
@@ -115,6 +117,32 @@ class QueryRouterTest(unittest.TestCase):
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
         assert relationship_service.last_intent is not None
         self.assertEqual(relationship_service.last_intent.task_type, TaskType.RELATIONSHIP_ANALYSIS)
+
+    def test_mixed_state_comparison_does_not_reclassify_as_state_gdp(self) -> None:
+        relationship_service = _CapturingRelationshipService()
+        router = QueryRouter(
+            clarification_resolver=_NoopClarificationResolver(),
+            state_gdp_service=_StubStateGDPService(),
+            cross_section_service=_StubCrossSectionService(),
+            single_series_service=_StubSingleSeriesService(),
+            relationship_service=relationship_service,
+        )
+        intent = QueryIntent(
+            task_type=TaskType.MULTI_SERIES_COMPARISON,
+            comparison_mode=ComparisonMode.MULTI_SERIES,
+            geographies=[
+                Geography(name="California", geography_type=GeographyType.STATE),
+                Geography(name="Texas", geography_type=GeographyType.STATE),
+            ],
+            indicators=["state gdp", "unemployment rate"],
+            search_texts=["state gdp california texas", "unemployment rate california texas"],
+        )
+
+        response = router.route(intent)
+
+        self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        assert relationship_service.last_intent is not None
+        self.assertEqual(relationship_service.last_intent.task_type, TaskType.MULTI_SERIES_COMPARISON)
 
 
 if __name__ == "__main__":
