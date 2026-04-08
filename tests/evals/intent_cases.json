@@ -1,118 +1,1871 @@
-[
-  {
-    "id": "unemployment_since_2020",
-    "query": "Show me unemployment since 2020",
-    "expect": {
-      "task_type": "single_series_lookup",
-      "transform": "level",
-      "search_text_contains": "unemployment",
-      "start_date": "2020-01-01",
-      "clarification_needed": false
+{
+  "version": 2,
+  "suite": "intent",
+  "families": [
+    {
+      "family": "single_series_basics",
+      "description": "Direct single-series requests with explicit indicators and dates.",
+      "cases": {
+        "supported": [
+          {
+            "id": "ss_basic_unemployment_2020",
+            "query": "Show me the unemployment rate since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "unemployment",
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_payrolls_2019",
+            "query": "Show me payroll employment since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "employment",
+              "start_date": "2019-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_cpi_2021",
+            "query": "Show me CPI inflation since 2021",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "inflation",
+              "start_date": "2021-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_housing_starts_2016",
+            "query": "Show me housing starts since 2016",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "housing",
+              "start_date": "2016-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_indpro_2017",
+            "query": "Show me industrial production since 2017",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "industrial production",
+              "start_date": "2017-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_retail_2015",
+            "query": "Show me retail sales since 2015",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "retail sales",
+              "start_date": "2015-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_sentiment_2022",
+            "query": "Show me consumer sentiment since 2022",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "sentiment",
+              "start_date": "2022-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_fedfunds_2008",
+            "query": "Show me the federal funds rate since 2008",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "federal funds",
+              "start_date": "2008-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_mortgage_2021",
+            "query": "Show me 30 year mortgage rates since 2021",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "mortgage",
+              "start_date": "2021-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_income_pc_2018",
+            "query": "Show me real personal income per capita since 2018",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "personal income",
+              "start_date": "2018-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_oil_2014",
+            "query": "Show me oil prices since 2014",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "oil",
+              "start_date": "2014-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_claims_2020",
+            "query": "Show me initial jobless claims since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "claims",
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_money_2020",
+            "query": "Show me the money supply since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "money supply",
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_capacity_2019",
+            "query": "Show me capacity utilization since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "capacity utilization",
+              "start_date": "2019-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_pce_2018",
+            "query": "Show me PCE inflation since 2018",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "inflation",
+              "start_date": "2018-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ss_basic_real_gdp_2010",
+            "query": "Show me real GDP since 2010",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "gdp",
+              "start_date": "2010-01-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "ss_basic_clar_housing_2020",
+            "query": "Show me housing since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "housing",
+              "start_date": "2020-01-01",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "ss_basic_clar_wages_2020",
+            "query": "Show me wages since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "wages",
+              "start_date": "2020-01-01",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "ss_basic_clar_sentiment_2019",
+            "query": "Show me sentiment since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "sentiment",
+              "start_date": "2019-01-01",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "ss_basic_clar_output_2018",
+            "query": "Show me output since 2018",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "output",
+              "start_date": "2018-01-01",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "ss_basic_unsupported_forecast_unemployment",
+            "query": "Forecast the unemployment rate through 2027",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "unemployment",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "ss_basic_unsupported_explain_inflation",
+            "query": "Explain why inflation rose in 2022",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "inflation",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "ss_basic_unsupported_predict_housing",
+            "query": "Predict housing starts for next year",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "housing",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "ss_basic_unsupported_recession_risk",
+            "query": "Tell me the recession risk for 2026",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "risk",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "single_series_transforms",
+      "description": "Single-series transform requests including YoY, period-over-period, rolling averages, and volatility.",
+      "cases": {
+        "supported": [
+          {
+            "id": "ss_xform_unemployment_yoy",
+            "query": "Show me unemployment year over year since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "year_over_year_percent_change",
+              "clarification_needed": false,
+              "search_text_contains": "unemployment",
+              "start_date": "2020-01-01"
+            }
+          },
+          {
+            "id": "ss_xform_cpi_yoy",
+            "query": "Show me CPI year over year since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "year_over_year_percent_change",
+              "clarification_needed": false,
+              "search_text_contains": "cpi",
+              "start_date": "2019-01-01"
+            }
+          },
+          {
+            "id": "ss_xform_pce_yoy",
+            "query": "Show me PCE inflation year over year since 2018",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "year_over_year_percent_change",
+              "clarification_needed": false,
+              "search_text_contains": "inflation",
+              "start_date": "2018-01-01"
+            }
+          },
+          {
+            "id": "ss_xform_cpi_mom",
+            "query": "Show me CPI month over month since 2022",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "period_over_period_percent_change",
+              "clarification_needed": false,
+              "search_text_contains": "cpi",
+              "start_date": "2022-01-01"
+            }
+          },
+          {
+            "id": "ss_xform_gdp_qoq",
+            "query": "Show me GDP quarter over quarter since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "period_over_period_percent_change",
+              "clarification_needed": false,
+              "search_text_contains": "gdp",
+              "start_date": "2019-01-01"
+            }
+          },
+          {
+            "id": "ss_xform_unemployment_ma3",
+            "query": "Show me the 3 month moving average of unemployment since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "rolling_average",
+              "clarification_needed": false,
+              "search_text_contains": "unemployment",
+              "start_date": "2020-01-01",
+              "transform_window": 3
+            }
+          },
+          {
+            "id": "ss_xform_payrolls_ma12",
+            "query": "Show me the 12 month moving average of payroll employment since 2015",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "rolling_average",
+              "clarification_needed": false,
+              "search_text_contains": "employment",
+              "start_date": "2015-01-01",
+              "transform_window": 12
+            }
+          },
+          {
+            "id": "ss_xform_cpi_stddev12",
+            "query": "Show me the 12 month rolling standard deviation of CPI since 2018",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "rolling_stddev",
+              "clarification_needed": false,
+              "search_text_contains": "cpi",
+              "start_date": "2018-01-01",
+              "transform_window": 12
+            }
+          },
+          {
+            "id": "ss_xform_unemployment_stddev6",
+            "query": "Show me the 6 month rolling standard deviation of unemployment since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "rolling_stddev",
+              "clarification_needed": false,
+              "search_text_contains": "unemployment",
+              "start_date": "2020-01-01",
+              "transform_window": 6
+            }
+          },
+          {
+            "id": "ss_xform_sp500_vol_30",
+            "query": "How volatile has the S&P 500 been over the last 30 days?",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "rolling_volatility",
+              "clarification_needed": false,
+              "search_text_contains": "s&p 500",
+              "transform_window": 30
+            }
+          },
+          {
+            "id": "ss_xform_nasdaq_vol_60",
+            "query": "How volatile has the Nasdaq been over the last 60 days?",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "rolling_volatility",
+              "clarification_needed": false,
+              "search_text_contains": "nasdaq",
+              "transform_window": 60
+            }
+          },
+          {
+            "id": "ss_xform_oil_ma6",
+            "query": "Show me the 6 month moving average of oil prices since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "transform": "rolling_average",
+              "clarification_needed": false,
+              "search_text_contains": "oil",
+              "start_date": "2019-01-01",
+              "transform_window": 6
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "ss_xform_clar_inflation_change",
+            "query": "Show me inflation change since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "inflation",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "start_date": "2020-01-01"
+            }
+          },
+          {
+            "id": "ss_xform_clar_prices_volatility",
+            "query": "Show me price volatility since 2021",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "price",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "start_date": "2021-01-01"
+            }
+          },
+          {
+            "id": "ss_xform_clar_moving_average_output",
+            "query": "Show me the 12 month moving average of output since 2018",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "search_text_contains": "output",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "start_date": "2018-01-01",
+              "transform": "rolling_average",
+              "transform_window": 12
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "ss_xform_unsupported_forecast_yoy_unemployment",
+            "query": "Forecast unemployment year over year through 2027",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "transform": "year_over_year_percent_change",
+              "search_text_contains": "unemployment"
+            }
+          },
+          {
+            "id": "ss_xform_unsupported_predict_volatility_sp500",
+            "query": "Predict S&P 500 volatility for next quarter",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "transform": "rolling_volatility"
+            }
+          },
+          {
+            "id": "ss_xform_unsupported_explain_moving_average_cpi",
+            "query": "Explain the 12 month moving average of CPI",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "transform": "rolling_average",
+              "transform_window": 12,
+              "search_text_contains": "cpi"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "cross_section_rankings",
+      "description": "Ranking and latest snapshot requests across states.",
+      "cases": {
+        "supported": [
+          {
+            "id": "xs_rank_highest_gdp",
+            "query": "Which state has the highest GDP?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "gdp",
+              "sort_descending": true,
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_rank_lowest_unemployment",
+            "query": "Which state has the lowest unemployment rate?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "unemployment",
+              "sort_descending": false,
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_rank_top5_lfpr",
+            "query": "Rank the top 5 states by labor force participation rate",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "labor force",
+              "sort_descending": true,
+              "clarification_needed": false,
+              "rank_limit": 5
+            }
+          },
+          {
+            "id": "xs_rank_bottom10_home_prices",
+            "query": "Rank the bottom 10 states by median home prices",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "housing",
+              "sort_descending": false,
+              "clarification_needed": false,
+              "rank_limit": 10
+            }
+          },
+          {
+            "id": "xs_rank_top3_housing_starts",
+            "query": "Show the top 3 states by housing starts",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "housing",
+              "sort_descending": true,
+              "clarification_needed": false,
+              "rank_limit": 3
+            }
+          },
+          {
+            "id": "xs_rank_bottom8_poverty",
+            "query": "Show the 8 states with the lowest poverty rate",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "poverty",
+              "sort_descending": false,
+              "clarification_needed": false,
+              "rank_limit": 8
+            }
+          },
+          {
+            "id": "xs_rank_highest_income_pc",
+            "query": "Which state has the highest personal income per capita?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "personal income",
+              "sort_descending": true,
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_rank_lowest_job_openings",
+            "query": "Which state has the lowest job openings rate?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "job openings",
+              "sort_descending": false,
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_rank_top7_payrolls",
+            "query": "Rank the top 7 states by payroll employment",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "employment",
+              "sort_descending": true,
+              "clarification_needed": false,
+              "rank_limit": 7
+            }
+          },
+          {
+            "id": "xs_rank_bottom4_rent",
+            "query": "Rank the bottom 4 states by rent inflation",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "rent",
+              "sort_descending": false,
+              "clarification_needed": false,
+              "rank_limit": 4
+            }
+          },
+          {
+            "id": "xs_rank_highest_household_income",
+            "query": "Which state has the highest median household income?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "household income",
+              "sort_descending": true,
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_rank_top6_exports",
+            "query": "Show the top 6 states by exports",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "search_text_contains": "exports",
+              "sort_descending": true,
+              "clarification_needed": false,
+              "rank_limit": 6
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "xs_rank_clar_highest_now",
+            "query": "Which state is highest right now?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "xs_rank_clar_top5_states",
+            "query": "Rank the top 5 states",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true,
+              "rank_limit": 5
+            }
+          },
+          {
+            "id": "xs_rank_clar_lowest_today",
+            "query": "Which states are lowest today?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true,
+              "sort_descending": false
+            }
+          },
+          {
+            "id": "xs_rank_clar_bottom10_now",
+            "query": "Show me the bottom 10 states right now",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true,
+              "rank_limit": 10,
+              "sort_descending": false
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "xs_rank_unsupported_best_state",
+            "query": "Which state is best for the economy?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "xs_rank_unsupported_move_decision",
+            "query": "Which state should I move to for jobs?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true,
+              "search_text_contains": "jobs"
+            }
+          },
+          {
+            "id": "xs_rank_unsupported_worst_state_future",
+            "query": "Which state will have the worst unemployment rate next year?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true,
+              "search_text_contains": "unemployment"
+            }
+          },
+          {
+            "id": "xs_rank_unsupported_county_map",
+            "query": "Map the counties with the highest unemployment rate",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "states",
+              "clarification_needed": true,
+              "search_text_contains": "unemployment"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "cross_section_point_in_time",
+      "description": "Point-in-time value lookups that should resolve as cross sections over a single series.",
+      "cases": {
+        "supported": [
+          {
+            "id": "xs_time_inflation_2023_01",
+            "query": "What was inflation in January 2023?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "inflation",
+              "observation_date": "2023-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_unemployment_2020_03",
+            "query": "What was unemployment in March 2020?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "unemployment",
+              "observation_date": "2020-03-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_cpi_2022_06",
+            "query": "What was CPI in June 2022?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "cpi",
+              "observation_date": "2022-06-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_fedfunds_2007_07",
+            "query": "What was the federal funds rate in July 2007?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "federal funds",
+              "observation_date": "2007-07-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_housing_2018_02",
+            "query": "What were housing starts in February 2018?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "housing",
+              "observation_date": "2018-02-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_indpro_2021_09",
+            "query": "What was industrial production in September 2021?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "industrial production",
+              "observation_date": "2021-09-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_retail_2019_12",
+            "query": "What were retail sales in December 2019?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "retail sales",
+              "observation_date": "2019-12-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_sentiment_2023_11",
+            "query": "What was consumer sentiment in November 2023?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "sentiment",
+              "observation_date": "2023-11-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_payrolls_2020_04",
+            "query": "What was payroll employment in April 2020?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "employment",
+              "observation_date": "2020-04-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_oil_2024_05",
+            "query": "What were oil prices in May 2024?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "oil",
+              "observation_date": "2024-05-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_income_2021_08",
+            "query": "What was personal income in August 2021?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "personal income",
+              "observation_date": "2021-08-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "xs_time_mortgage_2022_10",
+            "query": "What were mortgage rates in October 2022?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "search_text_contains": "mortgage",
+              "observation_date": "2022-10-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "xs_time_clar_value_jan2023",
+            "query": "What was the value in January 2023?",
+            "expect": {
+              "task_type": "cross_section",
+              "clarification_needed": true,
+              "cross_section_scope": "single_series",
+              "observation_date": "2023-01-01"
+            }
+          },
+          {
+            "id": "xs_time_clar_rate_mar2020",
+            "query": "What was the rate in March 2020?",
+            "expect": {
+              "task_type": "cross_section",
+              "clarification_needed": true,
+              "cross_section_scope": "single_series",
+              "observation_date": "2020-03-01"
+            }
+          },
+          {
+            "id": "xs_time_clar_highest_june2022",
+            "query": "Which state was highest in June 2022?",
+            "expect": {
+              "task_type": "cross_section",
+              "clarification_needed": true,
+              "cross_section_scope": "states",
+              "observation_date": "2022-06-01"
+            }
+          },
+          {
+            "id": "xs_time_clar_lowest_2019",
+            "query": "Which state was lowest in 2019?",
+            "expect": {
+              "task_type": "cross_section",
+              "clarification_needed": true,
+              "cross_section_scope": "states",
+              "observation_date": "2019-01-01",
+              "sort_descending": false
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "xs_time_unsupported_forecast_2027",
+            "query": "What will unemployment be in January 2027?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "clarification_needed": true,
+              "search_text_contains": "unemployment",
+              "observation_date": "2027-01-01"
+            }
+          },
+          {
+            "id": "xs_time_unsupported_target_inflation",
+            "query": "What should inflation be in 2028?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "clarification_needed": true,
+              "search_text_contains": "inflation",
+              "observation_date": "2028-01-01"
+            }
+          },
+          {
+            "id": "xs_time_unsupported_explain_month",
+            "query": "Why was CPI high in June 2022?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "clarification_needed": true,
+              "search_text_contains": "cpi",
+              "observation_date": "2022-06-01"
+            }
+          },
+          {
+            "id": "xs_time_unsupported_policy_target",
+            "query": "What should the federal funds rate be in 2026?",
+            "expect": {
+              "task_type": "cross_section",
+              "cross_section_scope": "single_series",
+              "clarification_needed": true,
+              "search_text_contains": "federal funds",
+              "observation_date": "2026-01-01"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "state_gdp_comparisons",
+      "description": "Two-state GDP comparisons with explicit geography coverage.",
+      "cases": {
+        "supported": [
+          {
+            "id": "gdp_cmp_california_texas_2019",
+            "query": "Compare California and Texas GDP since 2019",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "California",
+                "Texas"
+              ],
+              "start_date": "2019-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_new_florida_2018",
+            "query": "Compare New York and Florida GDP since 2018",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "New York",
+                "Florida"
+              ],
+              "start_date": "2018-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_washington_oregon_2020",
+            "query": "Compare Washington and Oregon GDP since 2020",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Washington",
+                "Oregon"
+              ],
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_illinois_ohio_2017",
+            "query": "Compare Illinois and Ohio GDP since 2017",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Illinois",
+                "Ohio"
+              ],
+              "start_date": "2017-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_georgia_north_2016",
+            "query": "Compare Georgia and North Carolina GDP since 2016",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Georgia",
+                "North Carolina"
+              ],
+              "start_date": "2016-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_pennsylvania_michigan_2015",
+            "query": "Compare Pennsylvania and Michigan GDP since 2015",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Pennsylvania",
+                "Michigan"
+              ],
+              "start_date": "2015-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_colorado_arizona_2021",
+            "query": "Compare Colorado and Arizona GDP since 2021",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Colorado",
+                "Arizona"
+              ],
+              "start_date": "2021-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_virginia_maryland_2014",
+            "query": "Compare Virginia and Maryland GDP since 2014",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Virginia",
+                "Maryland"
+              ],
+              "start_date": "2014-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_massachusetts_connecticut_2013",
+            "query": "Compare Massachusetts and Connecticut GDP since 2013",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Massachusetts",
+                "Connecticut"
+              ],
+              "start_date": "2013-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_utah_nevada_2012",
+            "query": "Compare Utah and Nevada GDP since 2012",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Utah",
+                "Nevada"
+              ],
+              "start_date": "2012-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_minnesota_wisconsin_2011",
+            "query": "Compare Minnesota and Wisconsin GDP since 2011",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Minnesota",
+                "Wisconsin"
+              ],
+              "start_date": "2011-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "gdp_cmp_tennessee_kentucky_2010",
+            "query": "Compare Tennessee and Kentucky GDP since 2010",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "geographies_include": [
+                "Tennessee",
+                "Kentucky"
+              ],
+              "start_date": "2010-01-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "gdp_cmp_clar_ca_only",
+            "query": "Compare California GDP",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "clarification_needed": true,
+              "geographies_include": [
+                "California"
+              ]
+            }
+          },
+          {
+            "id": "gdp_cmp_clar_texas_only_2019",
+            "query": "Compare Texas GDP since 2019",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "clarification_needed": true,
+              "geographies_include": [
+                "Texas"
+              ],
+              "start_date": "2019-01-01"
+            }
+          },
+          {
+            "id": "gdp_cmp_clar_florida_only_2020",
+            "query": "Compare Florida with GDP since 2020",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "clarification_needed": true,
+              "geographies_include": [
+                "Florida"
+              ],
+              "start_date": "2020-01-01"
+            }
+          },
+          {
+            "id": "gdp_cmp_clar_generic_states",
+            "query": "Compare two states by GDP",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "clarification_needed": true
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "gdp_cmp_unsupported_three_states",
+            "query": "Compare California, Texas, and Florida GDP since 2019",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "clarification_needed": true,
+              "start_date": "2019-01-01"
+            }
+          },
+          {
+            "id": "gdp_cmp_unsupported_forecast_pair",
+            "query": "Forecast California versus Texas GDP through 2030",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "clarification_needed": true,
+              "geographies_include": [
+                "California",
+                "Texas"
+              ]
+            }
+          },
+          {
+            "id": "gdp_cmp_unsupported_explain_pair",
+            "query": "Explain why California GDP is bigger than Texas GDP",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "clarification_needed": true,
+              "geographies_include": [
+                "California",
+                "Texas"
+              ]
+            }
+          },
+          {
+            "id": "gdp_cmp_unsupported_national_vs_state",
+            "query": "Compare Texas GDP with US GDP since 2019",
+            "expect": {
+              "task_type": "state_gdp_comparison",
+              "clarification_needed": true,
+              "geographies_include": [
+                "Texas"
+              ],
+              "start_date": "2019-01-01"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "multi_series_comparisons",
+      "description": "Direct pairwise comparisons between two non-state series.",
+      "cases": {
+        "supported": [
+          {
+            "id": "ms_cmp_real_nominal_gdp",
+            "query": "Compare real GDP and nominal GDP since 2015",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "real gdp",
+                "nominal gdp"
+              ],
+              "start_date": "2015-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_cpi_pce",
+            "query": "Compare CPI inflation and PCE inflation since 2019",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "cpi",
+                "pce"
+              ],
+              "start_date": "2019-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_wages_cpi",
+            "query": "Compare wages and CPI inflation since 2020",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "wages",
+                "cpi"
+              ],
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_payrolls_unemployment",
+            "query": "Compare payroll employment and the unemployment rate since 2018",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "employment",
+                "unemployment"
+              ],
+              "start_date": "2018-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_house_mortgage",
+            "query": "Compare house prices and mortgage rates since 2012",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "house",
+                "mortgage"
+              ],
+              "start_date": "2012-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_oil_gasoline",
+            "query": "Compare oil prices and gasoline prices since 2016",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "oil",
+                "gasoline"
+              ],
+              "start_date": "2016-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_exports_imports",
+            "query": "Compare exports and imports since 2014",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "exports",
+                "imports"
+              ],
+              "start_date": "2014-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_unrate_openings",
+            "query": "Compare unemployment and job openings since 2021",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "unemployment",
+                "job openings"
+              ],
+              "start_date": "2021-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_indpro_capacity",
+            "query": "Compare industrial production and capacity utilization since 2017",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "industrial production",
+                "capacity utilization"
+              ],
+              "start_date": "2017-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_sentiment_retail",
+            "query": "Compare consumer sentiment and retail sales since 2013",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "sentiment",
+                "retail sales"
+              ],
+              "start_date": "2013-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_fedfunds_mortgage",
+            "query": "Compare the federal funds rate and mortgage rates since 2009",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "federal funds",
+                "mortgage"
+              ],
+              "start_date": "2009-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "ms_cmp_income_spending",
+            "query": "Compare personal income and personal consumption expenditures since 2011",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "personal income",
+                "consumption"
+              ],
+              "start_date": "2011-01-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "ms_cmp_clar_inflation_wages",
+            "query": "Compare inflation and wages",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "ms_cmp_clar_prices_jobs",
+            "query": "Compare prices and jobs since 2020",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "clarification_needed": true,
+              "start_date": "2020-01-01"
+            }
+          },
+          {
+            "id": "ms_cmp_clar_output_rates",
+            "query": "Compare output and rates since 2018",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "clarification_needed": true,
+              "start_date": "2018-01-01"
+            }
+          },
+          {
+            "id": "ms_cmp_clar_housing_credit",
+            "query": "Compare housing and credit since 2015",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "clarification_needed": true,
+              "start_date": "2015-01-01"
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "ms_cmp_unsupported_compare_inflation_only",
+            "query": "Compare inflation since 2020",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "clarification_needed": true,
+              "start_date": "2020-01-01",
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "ms_cmp_unsupported_compare_jobs_only",
+            "query": "Compare jobs",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "ms_cmp_unsupported_compare_forecasts",
+            "query": "Compare inflation forecasts and unemployment forecasts",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "clarification_needed": true,
+              "search_texts_count": 2
+            }
+          },
+          {
+            "id": "ms_cmp_unsupported_compare_all",
+            "query": "Compare inflation with everything else",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "relationship_analysis",
+      "description": "Relationship, co-movement, and lead-lag prompts across two series.",
+      "cases": {
+        "supported": [
+          {
+            "id": "rel_brent_cpi",
+            "query": "What is the relationship between Brent crude oil and CPI inflation?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "brent",
+                "inflation"
+              ],
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "rel_house_mortgage",
+            "query": "What is the relationship between house prices and mortgage rates since 2012?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "house",
+                "mortgage"
+              ],
+              "clarification_needed": false,
+              "start_date": "2012-01-01"
+            }
+          },
+          {
+            "id": "rel_payrolls_unemployment",
+            "query": "What is the relationship between payroll employment and the unemployment rate since 2010?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "employment",
+                "unemployment"
+              ],
+              "clarification_needed": false,
+              "start_date": "2010-01-01"
+            }
+          },
+          {
+            "id": "rel_fedfunds_inflation",
+            "query": "How does the federal funds rate relate to inflation since 2000?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "federal funds",
+                "inflation"
+              ],
+              "clarification_needed": false,
+              "start_date": "2000-01-01"
+            }
+          },
+          {
+            "id": "rel_sp500_vix",
+            "query": "What is the relationship between the S&P 500 and the VIX since 2015?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "s&p 500",
+                "vix"
+              ],
+              "clarification_needed": false,
+              "start_date": "2015-01-01"
+            }
+          },
+          {
+            "id": "rel_oil_gasoline",
+            "query": "How closely do oil prices move with gasoline prices since 2016?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "oil",
+                "gasoline"
+              ],
+              "clarification_needed": false,
+              "start_date": "2016-01-01"
+            }
+          },
+          {
+            "id": "rel_sentiment_retail",
+            "query": "What is the relationship between consumer sentiment and retail sales since 2013?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "sentiment",
+                "retail sales"
+              ],
+              "clarification_needed": false,
+              "start_date": "2013-01-01"
+            }
+          },
+          {
+            "id": "rel_gdp_payrolls",
+            "query": "What is the relationship between GDP and payroll employment since 2011?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "gdp",
+                "employment"
+              ],
+              "clarification_needed": false,
+              "start_date": "2011-01-01"
+            }
+          },
+          {
+            "id": "rel_unemployment_openings",
+            "query": "How does unemployment relate to job openings since 2021?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "unemployment",
+                "job openings"
+              ],
+              "clarification_needed": false,
+              "start_date": "2021-01-01"
+            }
+          },
+          {
+            "id": "rel_mortgage_housing",
+            "query": "What is the relationship between mortgage rates and housing starts since 2018?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "mortgage",
+                "housing"
+              ],
+              "clarification_needed": false,
+              "start_date": "2018-01-01"
+            }
+          },
+          {
+            "id": "rel_dollar_oil",
+            "query": "What is the relationship between the dollar index and oil prices since 2014?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "dollar",
+                "oil"
+              ],
+              "clarification_needed": false,
+              "start_date": "2014-01-01"
+            }
+          },
+          {
+            "id": "rel_income_spending",
+            "query": "What is the relationship between personal income and consumer spending since 2012?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "search_texts_include": [
+                "income",
+                "spending"
+              ],
+              "clarification_needed": false,
+              "start_date": "2012-01-01"
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "rel_clar_housing_rates",
+            "query": "What is the relationship between housing and rates?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "rel_clar_prices_jobs",
+            "query": "How do prices relate to jobs since 2020?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "clarification_needed": true,
+              "start_date": "2020-01-01"
+            }
+          },
+          {
+            "id": "rel_clar_output_credit",
+            "query": "What is the relationship between output and credit since 2015?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "clarification_needed": true,
+              "start_date": "2015-01-01"
+            }
+          },
+          {
+            "id": "rel_clar_income_costs",
+            "query": "What is the relationship between income and costs?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "search_texts_count": 2,
+              "clarification_needed": true
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "rel_unsupported_single_target_inflation",
+            "query": "What is the relationship with inflation?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "rel_unsupported_single_target_housing",
+            "query": "How does housing relate?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "rel_unsupported_causal_why",
+            "query": "Why does inflation cause unemployment?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "clarification_needed": true,
+              "search_texts_count": 2
+            }
+          },
+          {
+            "id": "rel_unsupported_forecast_link",
+            "query": "Will oil prices and inflation move together next year?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "clarification_needed": true,
+              "search_texts_count": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "family": "explicit_series_ids",
+      "description": "Requests that directly reference FRED series IDs.",
+      "cases": {
+        "supported": [
+          {
+            "id": "sid_unrate_2020",
+            "query": "Show me FRED series UNRATE since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "series_id": "UNRATE",
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "sid_cpiaucsl_2018",
+            "query": "Show me FRED series CPIAUCSL since 2018",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "series_id": "CPIAUCSL",
+              "start_date": "2018-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "sid_gdp_2015",
+            "query": "Show me FRED series GDP since 2015",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "series_id": "GDP",
+              "start_date": "2015-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "sid_payems_2019",
+            "query": "Show me FRED series PAYEMS since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "series_id": "PAYEMS",
+              "start_date": "2019-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "sid_fedfunds_2010",
+            "query": "Show me FRED series FEDFUNDS since 2010",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "series_id": "FEDFUNDS",
+              "start_date": "2010-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "sid_houst_2016",
+            "query": "Show me FRED series HOUST since 2016",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "series_id": "HOUST",
+              "start_date": "2016-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "sid_unrate_vs_cpi_2020",
+            "query": "Compare FRED series UNRATE and CPIAUCSL since 2020",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "search_texts_count": 2,
+              "start_date": "2020-01-01",
+              "clarification_needed": false
+            }
+          },
+          {
+            "id": "sid_oil_vs_cpi_2018",
+            "query": "What is the relationship between FRED series DCOILBRENTEU and CPIAUCSL since 2018?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "start_date": "2018-01-01",
+              "clarification_needed": false
+            }
+          }
+        ],
+        "clarification": [
+          {
+            "id": "sid_clar_partial_id_u_2020",
+            "query": "Show me FRED series U since 2020",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "search_text_contains": "u",
+              "start_date": "2020-01-01"
+            }
+          },
+          {
+            "id": "sid_clar_series_code_jobs",
+            "query": "Show me the FRED jobs series since 2019",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "search_text_contains": "jobs",
+              "start_date": "2019-01-01"
+            }
+          },
+          {
+            "id": "sid_clar_compare_one_id",
+            "query": "Compare FRED series UNRATE since 2020",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "clarification_needed": true,
+              "clarification_target_index": 0,
+              "start_date": "2020-01-01"
+            }
+          },
+          {
+            "id": "sid_clar_relationship_one_id",
+            "query": "What is the relationship between FRED series CPIAUCSL?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "clarification_needed": true,
+              "clarification_target_index": 0
+            }
+          }
+        ],
+        "unsupported": [
+          {
+            "id": "sid_unsupported_invalid_series_forecast",
+            "query": "Forecast FRED series UNRATE through 2027",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "clarification_needed": true,
+              "series_id": "UNRATE",
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "sid_unsupported_explain_series",
+            "query": "Explain FRED series CPIAUCSL",
+            "expect": {
+              "task_type": "single_series_lookup",
+              "clarification_needed": true,
+              "series_id": "CPIAUCSL",
+              "clarification_target_index": 0
+            }
+          },
+          {
+            "id": "sid_unsupported_compare_many_ids",
+            "query": "Compare FRED series UNRATE, CPIAUCSL, and PAYEMS",
+            "expect": {
+              "task_type": "multi_series_comparison",
+              "clarification_needed": true
+            }
+          },
+          {
+            "id": "sid_unsupported_relationship_future_ids",
+            "query": "Will FRED series UNRATE and CPIAUCSL move together next year?",
+            "expect": {
+              "task_type": "relationship_analysis",
+              "clarification_needed": true
+            }
+          }
+        ]
+      }
     }
-  },
-  {
-    "id": "unemployment_yoy_since_2020",
-    "query": "Show me unemployment year over year since 2020",
-    "expect": {
-      "task_type": "single_series_lookup",
-      "transform": "year_over_year_percent_change",
-      "search_text_contains": "unemployment",
-      "start_date": "2020-01-01",
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "compare_inflation_and_wages",
-    "query": "Compare inflation and wages",
-    "expect": {
-      "task_type": "multi_series_comparison",
-      "clarification_needed": true,
-      "search_texts_count": 2
-    }
-  },
-  {
-    "id": "compare_california_texas_gdp",
-    "query": "Compare California and Texas GDP since 2019",
-    "expect": {
-      "task_type": "state_gdp_comparison",
-      "geographies_include": ["California", "Texas"],
-      "start_date": "2019-01-01",
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "highest_state_gdp",
-    "query": "Which state has the highest GDP?",
-    "expect": {
-      "task_type": "cross_section",
-      "cross_section_scope": "states",
-      "search_text_contains_any": ["gdp", "gross domestic product"],
-      "sort_descending": true,
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "lowest_state_unemployment",
-    "query": "Which state has the lowest unemployment rate?",
-    "expect": {
-      "task_type": "cross_section",
-      "cross_section_scope": "states",
-      "search_text_contains": "unemployment",
-      "sort_descending": false,
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "inflation_january_2023",
-    "query": "What was inflation in January 2023?",
-    "expect": {
-      "task_type": "cross_section",
-      "cross_section_scope": "single_series",
-      "search_text_contains": "inflation",
-      "observation_date": "2023-01-01",
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "top_5_state_labor_force_participation",
-    "query": "Rank the top 5 states by labor force participation rate",
-    "expect": {
-      "task_type": "cross_section",
-      "cross_section_scope": "states",
-      "search_text_contains": "labor force",
-      "rank_limit": 5,
-      "sort_descending": true,
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "sp500_volatility_30_days",
-    "query": "How volatile has the S&P 500 been over the last 30 days?",
-    "expect": {
-      "task_type": "single_series_lookup",
-      "transform": "rolling_volatility",
-      "transform_window": 30,
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "brent_vs_cpi_relationship",
-    "query": "What is the relationship between Brent crude oil and CPI inflation?",
-    "expect": {
-      "task_type": "relationship_analysis",
-      "search_texts_count": 2,
-      "search_texts_include": ["brent", "inflation"],
-      "clarification_needed": false
-    }
-  },
-  {
-    "id": "explicit_series_id",
-    "query": "Show me FRED series UNRATE since 2020",
-    "expect": {
-      "task_type": "single_series_lookup",
-      "series_id": "UNRATE",
-      "start_date": "2020-01-01",
-      "clarification_needed": false
-    }
-  }
-]
+  ]
+}
