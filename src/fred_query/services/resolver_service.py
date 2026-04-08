@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from datetime import date
 import re
+from typing import Callable
 
 from fred_query.schemas.analysis import ObservationPoint
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata, SeriesSearchMatch
 from fred_query.services.fred_client import FREDClient
 from fred_query.services.series_match_scorer import (
     build_match_score_context_from_parts,
+    candidate_text,
     extract_candidate_features,
     is_base_price_index,
     is_plain_inflation_request,
@@ -86,11 +88,6 @@ class ResolverService:
     """Resolve deterministic series mappings for the first workflow."""
 
     _SEARCH_CANDIDATE_LIMIT = 15
-    _SEMANTIC_PROFILES = {
-        "plain_inflation": {
-            "scorer_method": "_score_plain_inflation_profile",
-        },
-    }
     _RANKING_WEIGHTS = {
         "frequency_match": 1.75,
         "frequency_mismatch": 0.75,
@@ -187,21 +184,6 @@ class ResolverService:
         ]
 
     @classmethod
-    def _candidate_text(cls, candidate: SeriesSearchMatch) -> str:
-        return " ".join(
-            part
-            for part in [
-                candidate.series_id,
-                candidate.title,
-                candidate.units or "",
-                candidate.frequency or "",
-                candidate.seasonal_adjustment or "",
-                candidate.notes or "",
-            ]
-            if part
-        ).lower()
-
-    @classmethod
     def _frequency_score(cls, candidate: SeriesSearchMatch, *, query_text: str) -> float:
         normalized_frequency = (candidate.frequency or "").strip().lower()
         if not normalized_frequency:
@@ -231,12 +213,12 @@ class ResolverService:
         if normalized_geography in {"united states", "u.s.", "us", "national"}:
             return 0.0
 
-        candidate_text = cls._candidate_text(candidate)
+        candidate_text_value = candidate_text(candidate)
         geography_terms = cls._significant_terms(geography)
         if not geography_terms:
             return 0.0
 
-        matched_terms = sum(1 for term in geography_terms if term in candidate_text)
+        matched_terms = sum(1 for term in geography_terms if term in candidate_text_value)
         if matched_terms == len(geography_terms):
             return cls._RANKING_WEIGHTS["geography_exact_match"]
         if matched_terms > 0:
@@ -251,8 +233,8 @@ class ResolverService:
         if not phrase or phrase == "unknown_indicator":
             return 0.0
 
-        candidate_text = cls._candidate_text(candidate)
-        if phrase in candidate_text:
+        candidate_text_value = candidate_text(candidate)
+        if phrase in candidate_text_value:
             return cls._RANKING_WEIGHTS["indicator_exact_phrase_match"]
 
         terms = cls._significant_terms(indicator)
@@ -261,7 +243,7 @@ class ResolverService:
 
         title_text = f"{candidate.series_id} {candidate.title}".lower()
         title_matches = sum(1 for term in terms if term in title_text)
-        full_matches = sum(1 for term in terms if term in candidate_text)
+        full_matches = sum(1 for term in terms if term in candidate_text_value)
         if title_matches >= max(1, min(2, len(terms))):
             return cls._RANKING_WEIGHTS["indicator_title_term_match"]
         if full_matches >= max(1, min(2, len(terms))):
@@ -278,18 +260,19 @@ class ResolverService:
     ) -> float:
         score = 0.0
         search_variants = [value for value in [search_text, indicator] if value]
-        for profile_name in cls._semantic_profile_names(search_variants):
-            scorer_method_name = cls._SEMANTIC_PROFILES[profile_name]["scorer_method"]
-            scorer = getattr(cls, scorer_method_name)
+        for scorer in cls._semantic_profile_scorers(search_variants):
             score += scorer(candidate)
         return score
 
     @classmethod
-    def _semantic_profile_names(cls, search_variants: list[str]) -> list[str]:
-        profile_names: list[str] = []
+    def _semantic_profile_scorers(
+        cls,
+        search_variants: list[str],
+    ) -> list[Callable[[SeriesSearchMatch], float]]:
+        scorers: list[Callable[[SeriesSearchMatch], float]] = []
         if is_plain_inflation_request(search_variants):
-            profile_names.append("plain_inflation")
-        return profile_names
+            scorers.append(cls._score_plain_inflation_profile)
+        return scorers
 
     @classmethod
     def _score_plain_inflation_profile(cls, candidate: SeriesSearchMatch) -> float:
@@ -305,8 +288,8 @@ class ResolverService:
         elif candidate_features.has_pce:
             score += cls._RANKING_WEIGHTS["profile_plain_inflation_pce_bonus"]
 
-        candidate_text = cls._candidate_text(candidate)
-        if "breakeven" in candidate_text:
+        candidate_text_value = candidate_text(candidate)
+        if "breakeven" in candidate_text_value:
             score -= cls._RANKING_WEIGHTS["profile_plain_inflation_breakeven_penalty"]
         return score
 

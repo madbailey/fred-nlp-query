@@ -282,11 +282,29 @@ class ResolverServiceTest(unittest.TestCase):
         self.assertEqual(metadata.series_id, "WINNER")
         self.assertEqual(resolved.score, 0.78)
 
-    def test_semantic_profile_names_detect_plain_inflation_profile(self) -> None:
-        self.assertEqual(
-            ResolverService._semantic_profile_names(["inflation united states", "inflation"]),
-            ["plain_inflation"],
+    def test_semantic_profile_scorers_detect_plain_inflation_profile(self) -> None:
+        scorers = ResolverService._semantic_profile_scorers(["inflation united states", "inflation"])
+
+        self.assertEqual(len(scorers), 1)
+        expected = ResolverService._score_plain_inflation_profile(
+            SeriesSearchMatch(
+                series_id="CPIAUCSL",
+                title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                units="Index 1982-1984=100",
+                frequency="Monthly",
+                source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+            )
         )
+        actual = scorers[0](
+            SeriesSearchMatch(
+                series_id="CPIAUCSL",
+                title="Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+                units="Index 1982-1984=100",
+                frequency="Monthly",
+                source_url="https://fred.stlouisfed.org/series/CPIAUCSL",
+            )
+        )
+        self.assertEqual(actual, expected)
 
     def test_plain_inflation_profile_prefers_cpi_like_series_over_breakeven_series(self) -> None:
         cpi_score = ResolverService._score_plain_inflation_profile(
