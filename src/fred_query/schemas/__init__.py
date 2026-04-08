@@ -17,8 +17,13 @@ from fred_query.schemas.intent import (
     CrossSectionScope,
     Geography,
     GeographyType,
+    QueryOperator,
+    QueryOutputMode,
+    QueryPlan,
+    QueryTimeScope,
     QueryIntent,
     TaskType,
+    TimeScopeKind,
     TransformType,
 )
 from fred_query.schemas.resolved_series import (
@@ -45,8 +50,12 @@ __all__ = [
     "HistoricalSeriesContext",
     "LineStyle",
     "ObservationPoint",
+    "QueryOperator",
     "QueryIntent",
+    "QueryOutputMode",
+    "QueryPlan",
     "QueryResponse",
+    "QueryTimeScope",
     "RelationshipSummary",
     "ResolvedSeries",
     "RoutedQueryResponse",
@@ -57,5 +66,6 @@ __all__ = [
     "SeriesMetadata",
     "SeriesSearchMatch",
     "TaskType",
+    "TimeScopeKind",
     "TransformType",
 ]

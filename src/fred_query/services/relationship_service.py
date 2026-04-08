@@ -369,4 +369,5 @@ class RelationshipAnalysisService:
             end_date=aligned_first[-1].date,
         )
         answer_text = self.answer_service.write_relationship_analysis(analysis)
+        response_intent.refresh_query_plan()
         return QueryResponse(intent=response_intent, analysis=analysis, chart=chart, answer_text=answer_text)

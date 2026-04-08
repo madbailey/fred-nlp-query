@@ -378,7 +378,7 @@ class FollowUpIntentMerger:
     ) -> QueryIntent:
         previous = self._session_intent(session_context)
         if previous is None or not self._is_follow_up_query(query, current, session_context):
-            return current
+            return current.refresh_query_plan()
 
         previous_targets = self._resolved_session_targets(session_context)
         current_targets = self._extract_targets_from_intent(current)
@@ -429,4 +429,4 @@ class FollowUpIntentMerger:
             current,
             previous_query=session_context.last_query if session_context is not None else None,
         )
-        return merged
+        return merged.refresh_query_plan()

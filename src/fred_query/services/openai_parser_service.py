@@ -163,4 +163,4 @@ class OpenAIIntentParser:
                     or "Which geographies do you want included in the cross-section?"
                 )
 
-        return intent
+        return intent.refresh_query_plan()

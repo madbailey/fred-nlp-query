@@ -329,6 +329,7 @@ class CrossSectionService:
             y_axis_title=displayed_results[0].series.units,
         )
         answer_text = self.answer_service.write_cross_section(analysis, intent=response_intent)
+        response_intent.refresh_query_plan()
         return QueryResponse(
             intent=response_intent,
             analysis=analysis,

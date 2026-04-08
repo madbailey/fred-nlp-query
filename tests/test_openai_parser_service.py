@@ -9,8 +9,11 @@ from fred_query.schemas.intent import (
     CrossSectionScope,
     Geography,
     GeographyType,
+    QueryOperator,
+    QueryOutputMode,
     QueryIntent,
     TaskType,
+    TimeScopeKind,
     TransformType,
 )
 from fred_query.services.openai_parser_service import OpenAIIntentParser
@@ -35,6 +38,7 @@ class OpenAIIntentParserTest(unittest.TestCase):
     def test_parser_returns_intent_and_sets_original_query(self) -> None:
         intent = QueryIntent(
             task_type=TaskType.STATE_GDP_COMPARISON,
+            indicators=["real_gdp"],
             geographies=[
                 Geography(name="California", geography_type=GeographyType.STATE),
                 Geography(name="Texas", geography_type=GeographyType.STATE),
@@ -53,6 +57,12 @@ class OpenAIIntentParserTest(unittest.TestCase):
 
         self.assertEqual(parsed.task_type, TaskType.STATE_GDP_COMPARISON)
         self.assertEqual(parsed.original_query, "Compare California and Texas GDP since 2019")
+        assert parsed.query_plan is not None
+        self.assertEqual(parsed.query_plan.subjects, ["real_gdp"])
+        self.assertEqual(parsed.query_plan.geographies, ["California", "Texas"])
+        self.assertEqual(parsed.query_plan.time_scope.kind, TimeScopeKind.RANGE)
+        self.assertEqual(parsed.query_plan.operators, [QueryOperator.COMPARE])
+        self.assertEqual(parsed.query_plan.output_mode, QueryOutputMode.TIME_SERIES)
 
     def test_parser_requests_clarification_for_incomplete_state_gdp_intent(self) -> None:
         intent = QueryIntent(
