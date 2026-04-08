@@ -3,12 +3,11 @@ from __future__ import annotations
 from datetime import date
 import re
 
-from fred_query.schemas.intent import QueryIntent, TaskType
 from fred_query.schemas.analysis import ObservationPoint
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata, SeriesSearchMatch
 from fred_query.services.fred_client import FREDClient
 from fred_query.services.series_match_scorer import (
-    build_match_score_context,
+    build_match_score_context_from_parts,
     extract_candidate_features,
     is_base_price_index,
     is_plain_inflation_request,
@@ -290,20 +289,6 @@ class ResolverService:
             return score
         return 0.0
 
-    @classmethod
-    def _build_search_intent(cls, *, search_text: str, geography: str, indicator: str) -> QueryIntent:
-        original_query = " ".join(
-            value
-            for value in [indicator, geography, search_text]
-            if value and value != "unknown_indicator" and value != "Unspecified"
-        )
-        return QueryIntent(
-            task_type=TaskType.SINGLE_SERIES_LOOKUP,
-            original_query=original_query or search_text,
-            search_text=search_text,
-            indicators=[indicator] if indicator and indicator != "unknown_indicator" else [],
-        )
-
     def _rank_search_matches(
         self,
         *,
@@ -315,12 +300,15 @@ class ResolverService:
         if not matches:
             return []
 
-        intent = self._build_search_intent(
-            search_text=search_text,
-            geography=geography,
-            indicator=indicator,
+        original_query = " ".join(
+            value
+            for value in [indicator, geography, search_text]
+            if value and value != "unknown_indicator" and value != "Unspecified"
         )
-        context = build_match_score_context(intent)
+        context = build_match_score_context_from_parts(
+            search_text=search_text,
+            original_query=original_query or search_text,
+        )
         query_text = " ".join(
             value.lower()
             for value in [search_text, geography, indicator]

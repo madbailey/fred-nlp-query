@@ -536,18 +536,38 @@ def build_match_score_context(intent: QueryIntent) -> MatchScoreContext | None:
     if not search_text:
         return None
 
-    example_searches = extract_clarification_examples(intent.clarification_question)
+    return build_match_score_context_from_parts(
+        search_text=search_text,
+        clarification_question=intent.clarification_question,
+        original_query=(
+            None
+            if intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS)
+            else intent.original_query
+        ),
+    )
+
+
+def build_match_score_context_from_parts(
+    *,
+    search_text: str | None,
+    clarification_question: str | None = None,
+    original_query: str | None = None,
+) -> MatchScoreContext | None:
+    if not search_text:
+        return None
+
+    example_searches = extract_clarification_examples(clarification_question)
     search_variants: list[str] = []
     for value in [*example_searches, search_text]:
         normalized = value.strip()
         if normalized and normalized not in search_variants:
             search_variants.append(normalized)
 
-    context_texts = context_texts_for_intent(
-        intent,
-        search_text=search_text,
-        example_searches=example_searches,
-    )
+    context_texts = [search_text, *example_searches]
+    if clarification_question:
+        context_texts.insert(0, clarification_question)
+    if original_query:
+        context_texts.insert(0, original_query)
     anchor_terms = significant_terms(context_texts)
     query_text = " ".join(part for part in context_texts if part)
     return MatchScoreContext(
