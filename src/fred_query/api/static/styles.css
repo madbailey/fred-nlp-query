@@ -1290,12 +1290,6 @@ h1 {
 }
 
 .chart-panel.is-dashboard-embedded .source-note {
-    padding-top: 8px;
-    font-size: 10px;
-    line-height: 1.4;
-}
-
-.chart-panel.is-dashboard-embedded .source-note {
     display: none;
 }
 
