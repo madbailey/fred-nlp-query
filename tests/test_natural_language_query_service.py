@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 import unittest
 
-from fred_query.schemas.analysis import AnalysisResult, QueryResponse, RoutedQueryResponse, RoutedQueryStatus, SeriesAnalysis
+from fred_query.schemas.analysis import (
+    AnalysisResult,
+    QueryResponse,
+    RoutedQueryReason,
+    RoutedQueryResponse,
+    RoutedQueryStatus,
+    SeriesAnalysis,
+)
 from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace
 from fred_query.schemas.intent import (
     ComparisonMode,
@@ -415,6 +422,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         response = service.ask("How has California GDP compared to Texas since 2019?")
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         self.assertEqual(response.answer_text, "Completed comparison.")
 
     def test_returns_clarification_with_candidates(self) -> None:
@@ -436,6 +444,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         response = service.ask("Show inflation.")
 
         self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(response.reason, RoutedQueryReason.AMBIGUOUS_SERIES)
         self.assertIn("CPI or PCE", response.answer_text)
         self.assertEqual(response.candidate_series[0].series_id, "CPIAUCSL")
 
@@ -458,6 +467,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         response = service.ask("Show inflation.", selected_series_id="CPIAUCSL")
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         self.assertEqual(response.query_response.intent.series_id, "CPIAUCSL")
         self.assertFalse(response.query_response.intent.clarification_needed)
 
@@ -481,6 +491,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         response = service.ask("What is the relationship between brent crude oil prices and inflation?")
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         self.assertEqual(response.answer_text, "Completed relationship analysis.")
 
     def test_clarification_candidates_prefer_question_examples_over_irrelevant_raw_search_hits(self) -> None:
@@ -506,6 +517,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         response = service.ask("What is the relationship between Brent crude oil prices and inflation since 2010?")
 
         self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(response.reason, RoutedQueryReason.AMBIGUOUS_SERIES)
         self.assertEqual(
             [candidate.series_id for candidate in response.candidate_series],
             ["CPIAUCSL", "PCEPI"],
@@ -538,6 +550,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         response = service.ask("What is the relationship between Brent crude oil prices and inflation since 2010?")
 
         self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(response.reason, RoutedQueryReason.AMBIGUOUS_SERIES)
         self.assertEqual(
             [candidate.series_id for candidate in response.candidate_series],
             ["SERIES1", "SERIES2"],
@@ -566,6 +579,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         response = service.ask("What is the relationship between Brent crude oil prices and inflation since 2010?")
 
         self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(response.reason, RoutedQueryReason.AMBIGUOUS_SERIES)
         self.assertEqual(
             [candidate.series_id for candidate in response.candidate_series],
             ["CPIAUCSL", "PCEPI", "PCETRIM12M159SFRBDAL"],
@@ -618,6 +632,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         response = service.ask("Rank the top 10 states by unemployment rate.")
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         self.assertEqual(response.answer_text, "Completed cross-section analysis.")
         self.assertEqual(response.query_response.chart.chart_type, "bar")
 
@@ -649,6 +664,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         )
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         self.assertEqual(response.query_response.intent.series_id, "UNRATE")
         self.assertEqual(response.query_response.intent.search_text, "unemployment rate")
         self.assertEqual(response.query_response.intent.start_date, date(2020, 1, 1))
@@ -683,6 +699,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         )
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         self.assertEqual(response.query_response.intent.task_type, TaskType.MULTI_SERIES_COMPARISON)
         self.assertEqual(response.query_response.intent.series_ids[0], "UNRATE")
         self.assertEqual(response.query_response.intent.search_texts, ["unemployment rate", "cpi"])
@@ -717,6 +734,7 @@ class NaturalLanguageQueryServiceTest(unittest.TestCase):
         )
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         self.assertEqual(response.query_response.intent.task_type, TaskType.CROSS_SECTION)
         self.assertEqual(response.query_response.intent.search_text, "unemployment rate")
         self.assertEqual(response.query_response.intent.cross_section_scope, CrossSectionScope.STATES)

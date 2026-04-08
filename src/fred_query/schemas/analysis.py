@@ -119,10 +119,19 @@ class RoutedQueryStatus(str, Enum):
     UNSUPPORTED = "unsupported"
 
 
+class RoutedQueryReason(str, Enum):
+    AMBIGUOUS_SERIES = "ambiguous_series"
+    TOO_MANY_TARGETS = "too_many_targets"
+    NEEDS_THRESHOLD = "needs_threshold"
+    UNKNOWN_GEOGRAPHY = "unknown_geography"
+    UNSUPPORTED_ROUTE = "unsupported_route"
+
+
 class RoutedQueryResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     status: RoutedQueryStatus
+    reason: RoutedQueryReason | None = None
     intent: QueryIntent
     answer_text: str
     query_response: QueryResponse | None = None

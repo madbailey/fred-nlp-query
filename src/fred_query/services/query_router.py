@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from fred_query.schemas.analysis import RoutedQueryResponse, RoutedQueryStatus
-from fred_query.schemas.intent import QueryIntent, TaskType
+from fred_query.schemas.analysis import RoutedQueryReason, RoutedQueryResponse, RoutedQueryStatus
+from fred_query.schemas.intent import GeographyType, QueryIntent, TaskType
 from fred_query.services.clarification_resolver import ClarificationResolver
 from fred_query.services.comparison_service import StateGDPComparisonService
 from fred_query.services.cross_section_service import CrossSectionService
@@ -30,6 +30,24 @@ class QueryRouter:
     @staticmethod
     def _default_start_date() -> date:
         return date.today() - timedelta(days=365 * 10)
+
+    @staticmethod
+    def _clarification_reason(intent: QueryIntent) -> RoutedQueryReason:
+        if intent.task_type == TaskType.STATE_GDP_COMPARISON or intent.planned_task_type == TaskType.STATE_GDP_COMPARISON:
+            if len(intent.geographies) > 2:
+                return RoutedQueryReason.TOO_MANY_TARGETS
+            if (
+                len(intent.geographies) < 2
+                or any(item.geography_type not in (GeographyType.STATE,) for item in intent.geographies)
+            ):
+                return RoutedQueryReason.UNKNOWN_GEOGRAPHY
+        return RoutedQueryReason.AMBIGUOUS_SERIES
+
+    @staticmethod
+    def _unsupported_reason(intent: QueryIntent) -> RoutedQueryReason:
+        if intent.planned_task_type == TaskType.CROSS_SECTION and intent.rank_limit is None and len(intent.geographies) > 25:
+            return RoutedQueryReason.NEEDS_THRESHOLD
+        return RoutedQueryReason.UNSUPPORTED_ROUTE
 
     @staticmethod
     def apply_selected_series(intent: QueryIntent, selected_series_ids: list[str | None] | None) -> QueryIntent:
@@ -77,6 +95,7 @@ class QueryRouter:
             candidate_series = self.clarification_resolver.build_candidates(intent)
             return RoutedQueryResponse(
                 status=RoutedQueryStatus.NEEDS_CLARIFICATION,
+                reason=self._clarification_reason(intent),
                 intent=intent,
                 answer_text=self.clarification_resolver.answer_text(intent, candidate_series=candidate_series),
                 candidate_series=candidate_series,
@@ -86,6 +105,7 @@ class QueryRouter:
             if len(intent.geographies) != 2:
                 return RoutedQueryResponse(
                     status=RoutedQueryStatus.NEEDS_CLARIFICATION,
+                    reason=self._clarification_reason(intent),
                     intent=intent,
                     answer_text="I need exactly two US states to run the GDP comparison.",
                 )
@@ -133,6 +153,7 @@ class QueryRouter:
 
         return RoutedQueryResponse(
             status=RoutedQueryStatus.UNSUPPORTED,
+            reason=self._unsupported_reason(intent),
             intent=intent,
             answer_text=(
                 "The parser understood the request, but there is no deterministic execution path for it yet. "

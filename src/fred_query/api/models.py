@@ -6,7 +6,13 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from fred_query.api.follow_up_suggestions import build_follow_up_suggestions
-from fred_query.schemas.analysis import FollowUpSuggestion, QueryResponse, RoutedQueryResponse, RoutedQueryStatus
+from fred_query.schemas.analysis import (
+    FollowUpSuggestion,
+    QueryResponse,
+    RoutedQueryReason,
+    RoutedQueryResponse,
+    RoutedQueryStatus,
+)
 from fred_query.schemas.intent import QueryIntent
 from fred_query.schemas.resolved_series import SeriesSearchMatch
 
@@ -119,6 +125,7 @@ class ApiRoutedQueryResponse(BaseModel):
     session_id: str
     revision_id: str
     status: RoutedQueryStatus
+    reason: RoutedQueryReason | None = None
     answer_text: str
     intent: QueryIntent
     candidate_series: list[SeriesSearchMatch] = Field(default_factory=list)
@@ -138,6 +145,7 @@ class ApiRoutedQueryResponse(BaseModel):
             session_id=session_id,
             revision_id=revision_id,
             status=response.status,
+            reason=response.reason,
             answer_text=response.answer_text,
             intent=response.intent,
             candidate_series=response.candidate_series,

@@ -17,6 +17,7 @@ from fred_query.errors import ConfigurationError
 from fred_query.schemas.analysis import (
     AnalysisResult,
     QueryResponse,
+    RoutedQueryReason,
     RoutedQueryResponse,
     RoutedQueryStatus,
     SeriesAnalysis,
@@ -208,6 +209,7 @@ class APITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "completed")
+        self.assertIsNone(payload["reason"])
         self.assertTrue(payload["session_id"])
         self.assertTrue(payload["revision_id"])
         self.assertEqual(payload["plotly_figure"]["layout"]["title"]["text"], "Real GDP Comparison: California vs Texas")
@@ -304,6 +306,7 @@ class APITest(unittest.TestCase):
     def test_ask_clarification(self) -> None:
         routed = RoutedQueryResponse(
             status=RoutedQueryStatus.NEEDS_CLARIFICATION,
+            reason=RoutedQueryReason.AMBIGUOUS_SERIES,
             intent=QueryIntent(
                 task_type=TaskType.SINGLE_SERIES_LOOKUP,
                 clarification_needed=True,
@@ -337,6 +340,7 @@ class APITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "needs_clarification")
+        self.assertEqual(payload["reason"], "ambiguous_series")
         self.assertTrue(payload["session_id"])
         self.assertEqual(payload["candidate_series"][0]["series_id"], "CPIAUCSL")
         self.assertEqual(payload["candidate_series"][0]["selection_label"], "Headline CPI")

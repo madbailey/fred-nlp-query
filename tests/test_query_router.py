@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 import unittest
 
-from fred_query.schemas.analysis import AnalysisResult, QueryResponse, RoutedQueryStatus
+from fred_query.schemas.analysis import AnalysisResult, QueryResponse, RoutedQueryReason, RoutedQueryStatus
 from fred_query.schemas.chart import AxisSpec, ChartSpec
 from fred_query.schemas.intent import (
     ComparisonMode,
@@ -86,6 +86,7 @@ class QueryRouterTest(unittest.TestCase):
         response = router.route(intent, selected_series_ids=["UNRATE", "CPIAUCSL"])
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         assert relationship_service.last_intent is not None
         self.assertEqual(relationship_service.last_intent.series_ids, ["UNRATE", "CPIAUCSL"])
         self.assertFalse(relationship_service.last_intent.clarification_needed)
@@ -115,6 +116,7 @@ class QueryRouterTest(unittest.TestCase):
         response = router.route(intent)
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         assert relationship_service.last_intent is not None
         self.assertEqual(relationship_service.last_intent.task_type, TaskType.RELATIONSHIP_ANALYSIS)
 
@@ -141,8 +143,68 @@ class QueryRouterTest(unittest.TestCase):
         response = router.route(intent)
 
         self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        self.assertIsNone(response.reason)
         assert relationship_service.last_intent is not None
         self.assertEqual(relationship_service.last_intent.task_type, TaskType.MULTI_SERIES_COMPARISON)
+
+    def test_state_gdp_clarification_uses_unknown_geography_reason_for_missing_state(self) -> None:
+        router = QueryRouter(
+            clarification_resolver=_NoopClarificationResolver(),
+            state_gdp_service=_StubStateGDPService(),
+            cross_section_service=_StubCrossSectionService(),
+            single_series_service=_StubSingleSeriesService(),
+            relationship_service=_CapturingRelationshipService(),
+        )
+        intent = QueryIntent(
+            task_type=TaskType.STATE_GDP_COMPARISON,
+            clarification_needed=True,
+            geographies=[Geography(name="California", geography_type=GeographyType.STATE)],
+            comparison_mode=ComparisonMode.STATE_VS_STATE,
+        )
+
+        response = router.route(intent)
+
+        self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(response.reason, RoutedQueryReason.UNKNOWN_GEOGRAPHY)
+
+    def test_state_gdp_clarification_uses_too_many_targets_reason_for_extra_states(self) -> None:
+        router = QueryRouter(
+            clarification_resolver=_NoopClarificationResolver(),
+            state_gdp_service=_StubStateGDPService(),
+            cross_section_service=_StubCrossSectionService(),
+            single_series_service=_StubSingleSeriesService(),
+            relationship_service=_CapturingRelationshipService(),
+        )
+        intent = QueryIntent(
+            task_type=TaskType.STATE_GDP_COMPARISON,
+            clarification_needed=True,
+            geographies=[
+                Geography(name="California", geography_type=GeographyType.STATE),
+                Geography(name="Texas", geography_type=GeographyType.STATE),
+                Geography(name="New York", geography_type=GeographyType.STATE),
+            ],
+            comparison_mode=ComparisonMode.STATE_VS_STATE,
+        )
+
+        response = router.route(intent)
+
+        self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(response.reason, RoutedQueryReason.TOO_MANY_TARGETS)
+
+    def test_unsupported_route_returns_machine_readable_reason(self) -> None:
+        router = QueryRouter(
+            clarification_resolver=_NoopClarificationResolver(),
+            state_gdp_service=_StubStateGDPService(),
+            cross_section_service=_StubCrossSectionService(),
+            single_series_service=_StubSingleSeriesService(),
+            relationship_service=_CapturingRelationshipService(),
+        )
+        intent = QueryIntent.model_construct(task_type="custom_task", query_plan=None)
+
+        response = router.route(intent)
+
+        self.assertEqual(response.status, RoutedQueryStatus.UNSUPPORTED)
+        self.assertEqual(response.reason, RoutedQueryReason.UNSUPPORTED_ROUTE)
 
 
 if __name__ == "__main__":
