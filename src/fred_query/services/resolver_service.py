@@ -103,9 +103,12 @@ class ResolverService:
         "plain_inflation_breakeven_penalty": 2.0,
         "search_rank_base_bonus": 2.0,
         "search_rank_decay": 0.15,
-        "resolved_score_floor": 0.55,
-        "resolved_score_scale": 20.0,
-        "resolved_score_cap": 0.99,
+        "confidence_single_candidate": 0.72,
+        "confidence_close_call": 0.6,
+        "confidence_moderate_gap": 0.78,
+        "confidence_clear_gap": 0.92,
+        "confidence_moderate_gap_threshold": 2.0,
+        "confidence_clear_gap_threshold": 5.0,
     }
     _STOP_WORDS = {
         "a",
@@ -349,6 +352,21 @@ class ResolverService:
         )
         return ranked
 
+    @classmethod
+    def _confidence_from_rank_gap(cls, ranked_matches: list[tuple[float, SeriesSearchMatch]]) -> float:
+        if len(ranked_matches) == 1:
+            return cls._RANKING_WEIGHTS["confidence_single_candidate"]
+
+        winner_score = ranked_matches[0][0]
+        runner_up_score = ranked_matches[1][0]
+        margin = winner_score - runner_up_score
+
+        if margin >= cls._RANKING_WEIGHTS["confidence_clear_gap_threshold"]:
+            return cls._RANKING_WEIGHTS["confidence_clear_gap"]
+        if margin >= cls._RANKING_WEIGHTS["confidence_moderate_gap_threshold"]:
+            return cls._RANKING_WEIGHTS["confidence_moderate_gap"]
+        return cls._RANKING_WEIGHTS["confidence_close_call"]
+
     def resolve_series(
         self,
         *,
@@ -386,14 +404,7 @@ class ResolverService:
 
         winner_score, search_match = ranked_matches[0]
         metadata = self.fred_client.get_series_metadata(search_match.series_id)
-        normalized_score = min(
-            self._RANKING_WEIGHTS["resolved_score_cap"],
-            max(
-                self._RANKING_WEIGHTS["resolved_score_floor"],
-                self._RANKING_WEIGHTS["resolved_score_floor"]
-                + (winner_score / self._RANKING_WEIGHTS["resolved_score_scale"]),
-            ),
-        )
+        normalized_score = self._confidence_from_rank_gap(ranked_matches)
         resolution_reason = (
             search_resolution_reason
             or "Resolved the query via reranked FRED search candidates. Best match from the top {candidate_count} hits was {series_id}."

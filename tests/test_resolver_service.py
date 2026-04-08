@@ -158,6 +158,47 @@ class _RankingFREDClient:
         return self.metadata[series_id]
 
 
+class _ConfidenceBandFREDClient:
+    def __init__(self) -> None:
+        self.metadata = {
+            "WINNER": SeriesMetadata(
+                series_id="WINNER",
+                title="Winner Series",
+                units="Index",
+                frequency="Monthly",
+                source_url="https://fred.stlouisfed.org/series/WINNER",
+            ),
+            "RUNNERUP": SeriesMetadata(
+                series_id="RUNNERUP",
+                title="Runner-up Series",
+                units="Index",
+                frequency="Monthly",
+                source_url="https://fred.stlouisfed.org/series/RUNNERUP",
+            ),
+        }
+
+    def search_series(self, search_text: str, limit: int = 5) -> list[SeriesSearchMatch]:
+        return [
+            SeriesSearchMatch(
+                series_id="WINNER",
+                title=self.metadata["WINNER"].title,
+                units=self.metadata["WINNER"].units,
+                frequency=self.metadata["WINNER"].frequency,
+                source_url=self.metadata["WINNER"].source_url,
+            ),
+            SeriesSearchMatch(
+                series_id="RUNNERUP",
+                title=self.metadata["RUNNERUP"].title,
+                units=self.metadata["RUNNERUP"].units,
+                frequency=self.metadata["RUNNERUP"].frequency,
+                source_url=self.metadata["RUNNERUP"].source_url,
+            ),
+        ]
+
+    def get_series_metadata(self, series_id: str) -> SeriesMetadata:
+        return self.metadata[series_id]
+
+
 class ResolverServiceTest(unittest.TestCase):
     def test_resolve_series_reranks_plain_inflation_queries_away_from_market_based_first_hit(self) -> None:
         client = _RankingFREDClient()
@@ -202,6 +243,44 @@ class ResolverServiceTest(unittest.TestCase):
         self.assertEqual(metadata.series_id, "TXURN")
         self.assertEqual(search_match.series_id, "TXURN")
         self.assertEqual(resolved.geography, "Texas")
+
+    def test_confidence_from_rank_gap_uses_close_call_band(self) -> None:
+        confidence = ResolverService._confidence_from_rank_gap(
+            [
+                (10.0, SeriesSearchMatch(series_id="WINNER", title="Winner", source_url="https://fred.stlouisfed.org/series/WINNER")),
+                (8.5, SeriesSearchMatch(series_id="RUNNERUP", title="Runner-up", source_url="https://fred.stlouisfed.org/series/RUNNERUP")),
+            ]
+        )
+
+        self.assertEqual(confidence, 0.6)
+
+    def test_confidence_from_rank_gap_uses_clear_gap_band(self) -> None:
+        confidence = ResolverService._confidence_from_rank_gap(
+            [
+                (12.0, SeriesSearchMatch(series_id="WINNER", title="Winner", source_url="https://fred.stlouisfed.org/series/WINNER")),
+                (6.0, SeriesSearchMatch(series_id="RUNNERUP", title="Runner-up", source_url="https://fred.stlouisfed.org/series/RUNNERUP")),
+            ]
+        )
+
+        self.assertEqual(confidence, 0.92)
+
+    def test_resolve_series_uses_rank_gap_confidence_instead_of_absolute_score_scaling(self) -> None:
+        client = _ConfidenceBandFREDClient()
+        resolver = ResolverService(client)
+
+        resolver._rank_search_matches = lambda **_: [  # type: ignore[method-assign]
+            (11.0, SeriesSearchMatch(series_id="WINNER", title="Winner Series", source_url="https://fred.stlouisfed.org/series/WINNER")),
+            (8.2, SeriesSearchMatch(series_id="RUNNERUP", title="Runner-up Series", source_url="https://fred.stlouisfed.org/series/RUNNERUP")),
+        ]
+
+        resolved, metadata, _ = resolver.resolve_series(
+            search_text="winner query",
+            geography="United States",
+            indicator="winner",
+        )
+
+        self.assertEqual(metadata.series_id, "WINNER")
+        self.assertEqual(resolved.score, 0.78)
 
 
 if __name__ == "__main__":
