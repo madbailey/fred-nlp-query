@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from datetime import date
+import re
 
+from fred_query.schemas.intent import QueryIntent, TaskType
 from fred_query.schemas.analysis import ObservationPoint
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata, SeriesSearchMatch
+from fred_query.services.clarification_resolver import ClarificationResolver
 from fred_query.services.fred_client import FREDClient
 
 
@@ -76,6 +79,28 @@ STATE_SERIES_PATTERNS = {
 class ResolverService:
     """Resolve deterministic series mappings for the first workflow."""
 
+    _SEARCH_CANDIDATE_LIMIT = 15
+    _STOP_WORDS = {
+        "a",
+        "an",
+        "and",
+        "for",
+        "in",
+        "of",
+        "the",
+        "to",
+        "united",
+        "states",
+    }
+    _FREQUENCY_TERMS = {
+        "daily": ("d", "daily"),
+        "weekly": ("w", "weekly"),
+        "monthly": ("m", "monthly"),
+        "quarterly": ("q", "quarterly"),
+        "annual": ("a", "annual"),
+        "yearly": ("a", "annual"),
+    }
+
     def __init__(self, fred_client: FREDClient) -> None:
         self.fred_client = fred_client
 
@@ -113,6 +138,186 @@ class ResolverService:
             source_url=metadata.source_url,
         )
 
+    @classmethod
+    def _tokenize(cls, value: str | None) -> list[str]:
+        if not value:
+            return []
+        return re.findall(r"[A-Za-z0-9]+", value.lower())
+
+    @classmethod
+    def _significant_terms(cls, value: str | None) -> list[str]:
+        return [
+            token
+            for token in cls._tokenize(value)
+            if len(token) >= 3 and token not in cls._STOP_WORDS
+        ]
+
+    @classmethod
+    def _candidate_text(cls, candidate: SeriesSearchMatch) -> str:
+        return " ".join(
+            part
+            for part in [
+                candidate.series_id,
+                candidate.title,
+                candidate.units or "",
+                candidate.frequency or "",
+                candidate.seasonal_adjustment or "",
+                candidate.notes or "",
+            ]
+            if part
+        ).lower()
+
+    @classmethod
+    def _frequency_score(cls, candidate: SeriesSearchMatch, *, query_text: str) -> float:
+        normalized_frequency = (candidate.frequency or "").strip().lower()
+        if not normalized_frequency:
+            return 0.0
+
+        score = 0.0
+        for term, aliases in cls._FREQUENCY_TERMS.items():
+            if term not in query_text:
+                continue
+            if any(alias in normalized_frequency for alias in aliases):
+                score += 1.75
+            else:
+                score -= 0.75
+        return score
+
+    @classmethod
+    def _geography_score(
+        cls,
+        candidate: SeriesSearchMatch,
+        *,
+        geography: str,
+        query_text: str,
+    ) -> float:
+        normalized_geography = geography.strip().lower()
+        if not normalized_geography or normalized_geography == "unspecified":
+            return 0.0
+        if normalized_geography in {"united states", "u.s.", "us", "national"}:
+            return 0.0
+
+        candidate_text = cls._candidate_text(candidate)
+        geography_terms = cls._significant_terms(geography)
+        if not geography_terms:
+            return 0.0
+
+        matched_terms = sum(1 for term in geography_terms if term in candidate_text)
+        if matched_terms == len(geography_terms):
+            return 3.0
+        if matched_terms > 0:
+            return 1.5
+        if any(term in query_text for term in geography_terms):
+            return -1.0
+        return 0.0
+
+    @classmethod
+    def _indicator_phrase_score(cls, candidate: SeriesSearchMatch, *, indicator: str) -> float:
+        phrase = indicator.strip().lower()
+        if not phrase or phrase == "unknown_indicator":
+            return 0.0
+
+        candidate_text = cls._candidate_text(candidate)
+        if phrase in candidate_text:
+            return 2.5
+
+        terms = cls._significant_terms(indicator)
+        if not terms:
+            return 0.0
+
+        title_text = f"{candidate.series_id} {candidate.title}".lower()
+        title_matches = sum(1 for term in terms if term in title_text)
+        full_matches = sum(1 for term in terms if term in candidate_text)
+        if title_matches >= max(1, min(2, len(terms))):
+            return 2.0
+        if full_matches >= max(1, min(2, len(terms))):
+            return 1.0
+        return 0.0
+
+    @classmethod
+    def _semantic_profile_score(
+        cls,
+        candidate: SeriesSearchMatch,
+        *,
+        search_text: str,
+        indicator: str,
+    ) -> float:
+        search_variants = [value for value in [search_text, indicator] if value]
+        if ClarificationResolver._is_plain_inflation_request(search_variants):
+            score = 0.0
+            if ClarificationResolver._is_base_price_index(candidate):
+                score += 3.0
+            if ClarificationResolver._has_specialized_inflation_variant(candidate):
+                score -= 2.0
+            candidate_features = ClarificationResolver._extract_candidate_features(candidate)
+            if candidate_features.has_cpi:
+                score += 1.0
+            elif candidate_features.has_pce:
+                score += 0.5
+            candidate_text = cls._candidate_text(candidate)
+            if "breakeven" in candidate_text:
+                score -= 2.0
+            return score
+        return 0.0
+
+    @classmethod
+    def _build_search_intent(cls, *, search_text: str, geography: str, indicator: str) -> QueryIntent:
+        original_query = " ".join(
+            value
+            for value in [indicator, geography, search_text]
+            if value and value != "unknown_indicator" and value != "Unspecified"
+        )
+        return QueryIntent(
+            task_type=TaskType.SINGLE_SERIES_LOOKUP,
+            original_query=original_query or search_text,
+            search_text=search_text,
+            indicators=[indicator] if indicator and indicator != "unknown_indicator" else [],
+        )
+
+    def _rank_search_matches(
+        self,
+        *,
+        search_text: str,
+        geography: str,
+        indicator: str,
+    ) -> list[tuple[float, SeriesSearchMatch]]:
+        matches = self.fred_client.search_series(search_text, limit=self._SEARCH_CANDIDATE_LIMIT)
+        if not matches:
+            return []
+
+        intent = self._build_search_intent(
+            search_text=search_text,
+            geography=geography,
+            indicator=indicator,
+        )
+        context = ClarificationResolver._build_context(intent)
+        query_text = " ".join(
+            value.lower()
+            for value in [search_text, geography, indicator]
+            if value and value not in {"unknown_indicator", "Unspecified"}
+        )
+
+        ranked: list[tuple[float, SeriesSearchMatch]] = []
+        for rank, candidate in enumerate(matches):
+            score = max(0.0, 2.0 - (rank * 0.15))
+            if context is not None:
+                score += ClarificationResolver._score_candidate(candidate, context=context)
+            score += self._frequency_score(candidate, query_text=query_text)
+            score += self._geography_score(candidate, geography=geography, query_text=query_text)
+            score += self._indicator_phrase_score(candidate, indicator=indicator)
+            score += self._semantic_profile_score(candidate, search_text=search_text, indicator=indicator)
+            ranked.append((score, candidate))
+
+        ranked.sort(
+            key=lambda item: (
+                item[0],
+                item[1].popularity or 0,
+                item[1].title,
+            ),
+            reverse=True,
+        )
+        return ranked
+
     def resolve_series(
         self,
         *,
@@ -140,27 +345,34 @@ class ResolverService:
         if not search_text:
             raise ValueError(no_target_message or "I need a resolvable series target before I can continue.")
 
-        matches = self.fred_client.search_series(search_text, limit=5)
-        if not matches:
+        ranked_matches = self._rank_search_matches(
+            search_text=search_text,
+            geography=geography,
+            indicator=indicator,
+        )
+        if not ranked_matches:
             raise ValueError(f"No FRED series matched search text '{search_text}'.")
 
-        search_match = matches[0]
+        winner_score, search_match = ranked_matches[0]
         metadata = self.fred_client.get_series_metadata(search_match.series_id)
+        normalized_score = min(0.99, max(0.55, 0.55 + (winner_score / 20.0)))
         resolution_reason = (
-            search_resolution_reason or "Resolved the query via FRED search. Top match was {series_id}."
+            search_resolution_reason
+            or "Resolved the query via reranked FRED search candidates. Best match from the top {candidate_count} hits was {series_id}."
         ).format(
             geography=geography,
             indicator=indicator,
             search_text=search_text,
             series_id=metadata.series_id,
             title=metadata.title,
+            candidate_count=len(ranked_matches),
         )
         return (
             self.build_resolved_series(
                 metadata,
                 geography=geography,
                 indicator=indicator,
-                score=0.8,
+                score=normalized_score,
                 resolution_reason=resolution_reason,
             ),
             metadata,
