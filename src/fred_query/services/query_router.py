@@ -50,7 +50,7 @@ class QueryRouter:
             intent.clarification_needed = False
             intent.clarification_question = None
             intent.clarification_target_index = None
-            return intent
+            return intent.refresh_query_plan()
 
         selected_series_id = next((value for value in normalized_ids if value), None)
         if selected_series_id:
@@ -62,7 +62,7 @@ class QueryRouter:
             intent.parser_notes.append(
                 f"User selected explicit series ID {selected_series_id} from clarification options."
             )
-        return intent
+        return intent.refresh_query_plan()
 
     def route(
         self,
@@ -71,6 +71,7 @@ class QueryRouter:
         selected_series_ids: list[str | None] | None = None,
     ) -> RoutedQueryResponse:
         intent = self.apply_selected_series(intent, selected_series_ids)
+        task_type = intent.planned_task_type
 
         if intent.clarification_needed:
             candidate_series = self.clarification_resolver.build_candidates(intent)
@@ -81,7 +82,7 @@ class QueryRouter:
                 candidate_series=candidate_series,
             )
 
-        if intent.task_type == TaskType.STATE_GDP_COMPARISON:
+        if task_type == TaskType.STATE_GDP_COMPARISON:
             if len(intent.geographies) != 2:
                 return RoutedQueryResponse(
                     status=RoutedQueryStatus.NEEDS_CLARIFICATION,
@@ -103,7 +104,7 @@ class QueryRouter:
                 query_response=query_response,
             )
 
-        if intent.task_type == TaskType.SINGLE_SERIES_LOOKUP:
+        if task_type == TaskType.SINGLE_SERIES_LOOKUP:
             query_response = self.single_series_service.lookup(intent)
             return RoutedQueryResponse(
                 status=RoutedQueryStatus.COMPLETED,
@@ -112,7 +113,7 @@ class QueryRouter:
                 query_response=query_response,
             )
 
-        if intent.task_type == TaskType.CROSS_SECTION:
+        if task_type == TaskType.CROSS_SECTION:
             query_response = self.cross_section_service.analyze(intent)
             return RoutedQueryResponse(
                 status=RoutedQueryStatus.COMPLETED,
@@ -121,7 +122,7 @@ class QueryRouter:
                 query_response=query_response,
             )
 
-        if intent.task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS):
+        if task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS):
             query_response = self.relationship_service.analyze(intent)
             return RoutedQueryResponse(
                 status=RoutedQueryStatus.COMPLETED,

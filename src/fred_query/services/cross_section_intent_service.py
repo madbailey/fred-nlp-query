@@ -97,7 +97,7 @@ class CrossSectionIntentService:
         intent.cross_section_scope = cls.infer_scope(intent, query=query)
         if any(term in cls._query_text(intent, query) for term in cls._ASCENDING_TERMS):
             intent.sort_descending = False
-        return intent
+        return intent.refresh_query_plan()
 
     @classmethod
     def promote_task_type(cls, intent: QueryIntent, *, query: str | None = None) -> QueryIntent:
@@ -112,4 +112,4 @@ class CrossSectionIntentService:
         ):
             intent.task_type = TaskType.CROSS_SECTION
             intent.cross_section_scope = CrossSectionScope.STATES
-        return intent
+        return intent.refresh_query_plan()

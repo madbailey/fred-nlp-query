@@ -5,7 +5,15 @@ import unittest
 
 from fred_query.schemas.analysis import AnalysisResult, QueryResponse, RoutedQueryStatus
 from fred_query.schemas.chart import AxisSpec, ChartSpec
-from fred_query.schemas.intent import ComparisonMode, QueryIntent, TaskType
+from fred_query.schemas.intent import (
+    ComparisonMode,
+    QueryIntent,
+    QueryOperator,
+    QueryOutputMode,
+    QueryPlan,
+    QueryTimeScope,
+    TaskType,
+)
 from fred_query.services.clarification_resolver import ClarificationResolver
 from fred_query.services.query_router import QueryRouter
 
@@ -79,6 +87,34 @@ class QueryRouterTest(unittest.TestCase):
         assert relationship_service.last_intent is not None
         self.assertEqual(relationship_service.last_intent.series_ids, ["UNRATE", "CPIAUCSL"])
         self.assertFalse(relationship_service.last_intent.clarification_needed)
+
+    def test_route_uses_query_plan_above_legacy_task_type(self) -> None:
+        relationship_service = _CapturingRelationshipService()
+        router = QueryRouter(
+            clarification_resolver=_NoopClarificationResolver(),
+            state_gdp_service=_StubStateGDPService(),
+            cross_section_service=_StubCrossSectionService(),
+            single_series_service=_StubSingleSeriesService(),
+            relationship_service=relationship_service,
+        )
+        intent = QueryIntent(
+            task_type=TaskType.SINGLE_SERIES_LOOKUP,
+            query_plan=QueryPlan(
+                subjects=["unemployment rate", "inflation"],
+                geographies=[],
+                time_scope=QueryTimeScope(),
+                operators=[QueryOperator.ANALYZE_RELATIONSHIP],
+                output_mode=QueryOutputMode.RELATIONSHIP,
+            ),
+            search_texts=["unemployment rate", "inflation"],
+            comparison_mode=ComparisonMode.RELATIONSHIP,
+        )
+
+        response = router.route(intent)
+
+        self.assertEqual(response.status, RoutedQueryStatus.COMPLETED)
+        assert relationship_service.last_intent is not None
+        self.assertEqual(relationship_service.last_intent.task_type, TaskType.RELATIONSHIP_ANALYSIS)
 
 
 if __name__ == "__main__":
