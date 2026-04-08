@@ -6,8 +6,15 @@ import re
 from fred_query.schemas.intent import QueryIntent, TaskType
 from fred_query.schemas.analysis import ObservationPoint
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata, SeriesSearchMatch
-from fred_query.services.clarification_resolver import ClarificationResolver
 from fred_query.services.fred_client import FREDClient
+from fred_query.services.series_match_scorer import (
+    build_match_score_context,
+    extract_candidate_features,
+    is_base_price_index,
+    is_plain_inflation_request,
+    has_specialized_inflation_variant,
+    score_candidate,
+)
 
 
 STATE_NAME_TO_CODE = {
@@ -243,13 +250,13 @@ class ResolverService:
         indicator: str,
     ) -> float:
         search_variants = [value for value in [search_text, indicator] if value]
-        if ClarificationResolver._is_plain_inflation_request(search_variants):
+        if is_plain_inflation_request(search_variants):
             score = 0.0
-            if ClarificationResolver._is_base_price_index(candidate):
+            if is_base_price_index(candidate):
                 score += 3.0
-            if ClarificationResolver._has_specialized_inflation_variant(candidate):
+            if has_specialized_inflation_variant(candidate):
                 score -= 2.0
-            candidate_features = ClarificationResolver._extract_candidate_features(candidate)
+            candidate_features = extract_candidate_features(candidate)
             if candidate_features.has_cpi:
                 score += 1.0
             elif candidate_features.has_pce:
@@ -290,7 +297,7 @@ class ResolverService:
             geography=geography,
             indicator=indicator,
         )
-        context = ClarificationResolver._build_context(intent)
+        context = build_match_score_context(intent)
         query_text = " ".join(
             value.lower()
             for value in [search_text, geography, indicator]
@@ -301,7 +308,7 @@ class ResolverService:
         for rank, candidate in enumerate(matches):
             score = max(0.0, 2.0 - (rank * 0.15))
             if context is not None:
-                score += ClarificationResolver._score_candidate(candidate, context=context)
+                score += score_candidate(candidate, context=context)
             score += self._frequency_score(candidate, query_text=query_text)
             score += self._geography_score(candidate, geography=geography, query_text=query_text)
             score += self._indicator_phrase_score(candidate, indicator=indicator)
