@@ -191,6 +191,29 @@ class QueryRouterTest(unittest.TestCase):
         self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
         self.assertEqual(response.reason, RoutedQueryReason.TOO_MANY_TARGETS)
 
+    def test_cross_section_clarification_uses_needs_threshold_reason_for_many_geographies(self) -> None:
+        router = QueryRouter(
+            clarification_resolver=_NoopClarificationResolver(),
+            state_gdp_service=_StubStateGDPService(),
+            cross_section_service=_StubCrossSectionService(),
+            single_series_service=_StubSingleSeriesService(),
+            relationship_service=_CapturingRelationshipService(),
+        )
+        intent = QueryIntent(
+            task_type=TaskType.CROSS_SECTION,
+            clarification_needed=True,
+            geographies=[
+                Geography(name=f"Region {index}", geography_type=GeographyType.REGION)
+                for index in range(26)
+            ],
+            search_text="unemployment rate",
+        )
+
+        response = router.route(intent)
+
+        self.assertEqual(response.status, RoutedQueryStatus.NEEDS_CLARIFICATION)
+        self.assertEqual(response.reason, RoutedQueryReason.NEEDS_THRESHOLD)
+
     def test_unsupported_route_returns_machine_readable_reason(self) -> None:
         router = QueryRouter(
             clarification_resolver=_NoopClarificationResolver(),

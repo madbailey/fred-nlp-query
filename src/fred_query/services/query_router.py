@@ -12,6 +12,8 @@ from fred_query.services.single_series_service import SingleSeriesLookupService
 
 
 class QueryRouter:
+    _MAX_UNBOUNDED_CROSS_SECTION_GEOGRAPHIES = 25
+
     def __init__(
         self,
         *,
@@ -32,7 +34,19 @@ class QueryRouter:
         return date.today() - timedelta(days=365 * 10)
 
     @staticmethod
+    def _needs_cross_section_threshold(intent: QueryIntent) -> bool:
+        # More than 25 named geographies creates an unreadable unbounded cross-section;
+        # require an explicit rank_limit so the user chooses the display threshold.
+        return (
+            intent.planned_task_type == TaskType.CROSS_SECTION
+            and intent.rank_limit is None
+            and len(intent.geographies) > QueryRouter._MAX_UNBOUNDED_CROSS_SECTION_GEOGRAPHIES
+        )
+
+    @staticmethod
     def _clarification_reason(intent: QueryIntent) -> RoutedQueryReason:
+        if QueryRouter._needs_cross_section_threshold(intent):
+            return RoutedQueryReason.NEEDS_THRESHOLD
         if intent.task_type == TaskType.STATE_GDP_COMPARISON or intent.planned_task_type == TaskType.STATE_GDP_COMPARISON:
             if len(intent.geographies) > 2:
                 return RoutedQueryReason.TOO_MANY_TARGETS
@@ -45,7 +59,7 @@ class QueryRouter:
 
     @staticmethod
     def _unsupported_reason(intent: QueryIntent) -> RoutedQueryReason:
-        if intent.planned_task_type == TaskType.CROSS_SECTION and intent.rank_limit is None and len(intent.geographies) > 25:
+        if QueryRouter._needs_cross_section_threshold(intent):
             return RoutedQueryReason.NEEDS_THRESHOLD
         return RoutedQueryReason.UNSUPPORTED_ROUTE
 
