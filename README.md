@@ -84,9 +84,19 @@ You can also write the generated chart spec to disk with `--chart-spec-out`.
 
 ## Evals
 
-`tests/evals/` is a small live eval harness for the intent parser. It is useful when you are changing prompts, parser behavior, or model settings and want a quick quality check on real OpenAI calls.
+`tests/evals/` contains both CI-safe deterministic regression snapshots and an opt-in live eval harness for the intent parser.
 
-These evals are skipped during normal test runs unless you opt in:
+The deterministic gate compares parser post-processing, resolver ranking, and router dispatch snapshots against checked-in baselines and thresholds:
+
+```bash
+python tests/evals/regression_gate.py
+python tests/evals/regression_gate.py --summary-out regression-gate-summary.md
+python tests/evals/regression_gate.py --update-snapshots
+```
+
+Only update snapshots after reviewing an intentional behavior change. CI runs this gate during routine PR checks and publishes a pass-rate and delta summary.
+
+The live OpenAI-backed evals remain skipped during normal test runs unless you opt in:
 
 ```bash
 python -m pytest tests/evals/test_intent_evals.py --run-evals -q
@@ -98,7 +108,7 @@ python -m pytest tests/test_clarification_resolver_eval_cases.py -q
 
 The eval fixtures are grouped by query family and labeled as `supported`, `clarification`, or `unsupported` so the corpus can cover parser breadth without losing structure.
 
-The evals split into three layers:
+The live evals split into three layers:
 
 - `test_intent_evals.py`: broad parser behavior
 - `test_clarification_trigger_evals.py`: parser-side clarification triggering
