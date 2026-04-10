@@ -7,6 +7,8 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ChartService": ("fred_query.services.chart_service", "ChartService"),
     "ClarificationResolver": ("fred_query.services.clarification_resolver", "ClarificationResolver"),
     "CrossSectionService": ("fred_query.services.cross_section_service", "CrossSectionService"),
+    "ExecutionExecutor": ("fred_query.services.execution_executor", "ExecutionExecutor"),
+    "ExecutionPlanner": ("fred_query.services.execution_planner", "ExecutionPlanner"),
     "FREDAPIError": ("fred_query.services.fred_client", "FREDAPIError"),
     "FREDClient": ("fred_query.services.fred_client", "FREDClient"),
     "FollowUpIntentMerger": ("fred_query.services.follow_up_intent_merger", "FollowUpIntentMerger"),
