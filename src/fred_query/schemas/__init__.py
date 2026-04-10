@@ -12,6 +12,7 @@ from fred_query.schemas.analysis import (
     SeriesAnalysis,
 )
 from fred_query.schemas.chart import AxisSpec, ChartSpec, ChartTrace, DateSpanAnnotation, LineStyle
+from fred_query.schemas.execution import ExecutionOperation, ExecutionPlan, ExecutionPlanType, ExecutionStep
 from fred_query.schemas.intent import (
     ComparisonMode,
     CrossSectionScope,
@@ -50,6 +51,10 @@ __all__ = [
     "HistoricalSeriesContext",
     "LineStyle",
     "ObservationPoint",
+    "ExecutionOperation",
+    "ExecutionPlan",
+    "ExecutionPlanType",
+    "ExecutionStep",
     "QueryOperator",
     "QueryIntent",
     "QueryOutputMode",

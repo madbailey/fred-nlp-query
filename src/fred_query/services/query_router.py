@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
-
 from fred_query.schemas.analysis import RoutedQueryReason, RoutedQueryResponse, RoutedQueryStatus
 from fred_query.schemas.intent import GeographyType, QueryIntent, TaskType
 from fred_query.services.clarification_resolver import ClarificationResolver
 from fred_query.services.comparison_service import StateGDPComparisonService
 from fred_query.services.cross_section_service import CrossSectionService
+from fred_query.services.execution_executor import ExecutionExecutor
+from fred_query.services.execution_planner import ExecutionPlanner
 from fred_query.services.relationship_service import RelationshipAnalysisService
 from fred_query.services.single_series_service import SingleSeriesLookupService
 
@@ -22,16 +22,21 @@ class QueryRouter:
         cross_section_service: CrossSectionService,
         single_series_service: SingleSeriesLookupService,
         relationship_service: RelationshipAnalysisService,
+        execution_planner: ExecutionPlanner | None = None,
+        execution_executor: ExecutionExecutor | None = None,
     ) -> None:
         self.clarification_resolver = clarification_resolver
         self.state_gdp_service = state_gdp_service
         self.cross_section_service = cross_section_service
         self.single_series_service = single_series_service
         self.relationship_service = relationship_service
-
-    @staticmethod
-    def _default_start_date() -> date:
-        return date.today() - timedelta(days=365 * 10)
+        self.execution_planner = execution_planner or ExecutionPlanner()
+        self.execution_executor = execution_executor or ExecutionExecutor(
+            state_gdp_service=state_gdp_service,
+            cross_section_service=cross_section_service,
+            single_series_service=single_series_service,
+            relationship_service=relationship_service,
+        )
 
     @staticmethod
     def _needs_cross_section_threshold(intent: QueryIntent) -> bool:
@@ -124,40 +129,9 @@ class QueryRouter:
                     answer_text="I need exactly two US states to run the GDP comparison.",
                 )
 
-            query_response = self.state_gdp_service.compare(
-                state1=intent.geographies[0].name,
-                state2=intent.geographies[1].name,
-                start_date=intent.start_date or self._default_start_date(),
-                end_date=intent.end_date,
-                normalize=intent.normalization,
-            )
-            return RoutedQueryResponse(
-                status=RoutedQueryStatus.COMPLETED,
-                intent=query_response.intent,
-                answer_text=query_response.answer_text,
-                query_response=query_response,
-            )
-
-        if task_type == TaskType.SINGLE_SERIES_LOOKUP:
-            query_response = self.single_series_service.lookup(intent)
-            return RoutedQueryResponse(
-                status=RoutedQueryStatus.COMPLETED,
-                intent=query_response.intent,
-                answer_text=query_response.answer_text,
-                query_response=query_response,
-            )
-
-        if task_type == TaskType.CROSS_SECTION:
-            query_response = self.cross_section_service.analyze(intent)
-            return RoutedQueryResponse(
-                status=RoutedQueryStatus.COMPLETED,
-                intent=query_response.intent,
-                answer_text=query_response.answer_text,
-                query_response=query_response,
-            )
-
-        if task_type in (TaskType.MULTI_SERIES_COMPARISON, TaskType.RELATIONSHIP_ANALYSIS):
-            query_response = self.relationship_service.analyze(intent)
+        if self.execution_planner.supports(intent):
+            execution_plan = self.execution_planner.compile(intent)
+            query_response = self.execution_executor.execute(execution_plan)
             return RoutedQueryResponse(
                 status=RoutedQueryStatus.COMPLETED,
                 intent=query_response.intent,
