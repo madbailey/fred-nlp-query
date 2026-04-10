@@ -1,0 +1,14 @@
+{
+  "parser": {
+    "max_regressions": 0,
+    "min_pass_rate": 1.0
+  },
+  "resolver": {
+    "max_regressions": 0,
+    "min_pass_rate": 1.0
+  },
+  "router": {
+    "max_regressions": 0,
+    "min_pass_rate": 1.0
+  }
+}

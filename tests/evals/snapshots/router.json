@@ -1,0 +1,348 @@
+[
+  {
+    "answer_text": "clarification:1",
+    "candidate_series_ids": [
+      "UNRATE"
+    ],
+    "case_id": "state_gdp_missing_state_requires_clarification",
+    "intent": {
+      "clarification_needed": true,
+      "comparison_mode": "state_vs_state",
+      "geographies": [
+        {
+          "geography_type": "state",
+          "name": "California"
+        }
+      ],
+      "indicators": [],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [
+          "California"
+        ],
+        "operators": [
+          "compare"
+        ],
+        "output_mode": "time_series",
+        "subjects": [],
+        "time_scope": {
+          "kind": "unspecified"
+        }
+      },
+      "search_texts": [],
+      "series_ids": [],
+      "sort_descending": true,
+      "task_type": "multi_series_comparison",
+      "transform": "level"
+    },
+    "reason": "unknown_geography",
+    "status": "needs_clarification"
+  },
+  {
+    "answer_text": "clarification:1",
+    "candidate_series_ids": [
+      "UNRATE"
+    ],
+    "case_id": "cross_section_many_geographies_needs_threshold",
+    "intent": {
+      "clarification_needed": true,
+      "comparison_mode": "none",
+      "geographies": [
+        {
+          "geography_type": "region",
+          "name": "Region 0"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 1"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 2"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 3"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 4"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 5"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 6"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 7"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 8"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 9"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 10"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 11"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 12"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 13"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 14"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 15"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 16"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 17"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 18"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 19"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 20"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 21"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 22"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 23"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 24"
+        },
+        {
+          "geography_type": "region",
+          "name": "Region 25"
+        }
+      ],
+      "indicators": [],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [
+          "Region 0",
+          "Region 1",
+          "Region 2",
+          "Region 3",
+          "Region 4",
+          "Region 5",
+          "Region 6",
+          "Region 7",
+          "Region 8",
+          "Region 9",
+          "Region 10",
+          "Region 11",
+          "Region 12",
+          "Region 13",
+          "Region 14",
+          "Region 15",
+          "Region 16",
+          "Region 17",
+          "Region 18",
+          "Region 19",
+          "Region 20",
+          "Region 21",
+          "Region 22",
+          "Region 23",
+          "Region 24",
+          "Region 25"
+        ],
+        "operators": [
+          "lookup"
+        ],
+        "output_mode": "cross_section",
+        "subjects": [
+          "unemployment rate"
+        ],
+        "time_scope": {
+          "kind": "latest"
+        }
+      },
+      "search_text": "unemployment rate",
+      "search_texts": [],
+      "series_ids": [],
+      "sort_descending": true,
+      "task_type": "cross_section",
+      "transform": "level"
+    },
+    "reason": "needs_threshold",
+    "status": "needs_clarification"
+  },
+  {
+    "answer_text": "routed:relationship",
+    "candidate_series_ids": [],
+    "case_id": "selected_series_dispatches_relationship",
+    "intent": {
+      "clarification_needed": false,
+      "comparison_mode": "relationship",
+      "geographies": [],
+      "indicators": [],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "parser_notes": [
+        "User selected explicit series ID UNRATE for target 0 from clarification options.",
+        "User selected explicit series ID CPIAUCSL for target 1 from clarification options."
+      ],
+      "query_plan": {
+        "geographies": [],
+        "operators": [
+          "analyze_relationship"
+        ],
+        "output_mode": "relationship",
+        "subjects": [
+          "unemployment rate",
+          "inflation",
+          "UNRATE",
+          "CPIAUCSL"
+        ],
+        "time_scope": {
+          "kind": "unspecified"
+        }
+      },
+      "search_texts": [
+        "unemployment rate",
+        "inflation"
+      ],
+      "series_ids": [
+        "UNRATE",
+        "CPIAUCSL"
+      ],
+      "sort_descending": true,
+      "task_type": "relationship_analysis",
+      "transform": "level"
+    },
+    "reason": null,
+    "status": "completed"
+  },
+  {
+    "answer_text": "routed:relationship",
+    "candidate_series_ids": [],
+    "case_id": "query_plan_overrides_legacy_task_type",
+    "intent": {
+      "clarification_needed": false,
+      "comparison_mode": "relationship",
+      "geographies": [],
+      "indicators": [],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [],
+        "operators": [
+          "analyze_relationship"
+        ],
+        "output_mode": "relationship",
+        "subjects": [
+          "unemployment rate",
+          "inflation"
+        ],
+        "time_scope": {
+          "kind": "unspecified"
+        }
+      },
+      "search_texts": [
+        "unemployment rate",
+        "inflation"
+      ],
+      "series_ids": [],
+      "sort_descending": true,
+      "task_type": "relationship_analysis",
+      "transform": "level"
+    },
+    "reason": null,
+    "status": "completed"
+  },
+  {
+    "answer_text": "routed:single_series",
+    "candidate_series_ids": [],
+    "case_id": "single_series_dispatch",
+    "intent": {
+      "clarification_needed": false,
+      "comparison_mode": "none",
+      "geographies": [],
+      "indicators": [],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [],
+        "operators": [
+          "lookup"
+        ],
+        "output_mode": "time_series",
+        "subjects": [
+          "unemployment rate"
+        ],
+        "time_scope": {
+          "kind": "unspecified"
+        }
+      },
+      "search_text": "unemployment rate",
+      "search_texts": [],
+      "series_ids": [],
+      "sort_descending": true,
+      "task_type": "single_series_lookup",
+      "transform": "level"
+    },
+    "reason": null,
+    "status": "completed"
+  },
+  {
+    "answer_text": "The parser understood the request, but there is no deterministic execution path for it yet. Right now the live implementation supports state GDP comparisons, point-in-time cross sections, single-series lookups, and pairwise non-state relationship analysis.",
+    "candidate_series_ids": [],
+    "case_id": "unsupported_route_reason",
+    "reason": "unsupported_route",
+    "status": "unsupported"
+  }
+]
