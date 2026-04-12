@@ -44,6 +44,42 @@ class SingleSeriesTransformOutput:
 
 
 @dataclass(frozen=True)
+class RelationshipTransformPlan:
+    start_date: date
+    end_date: date | None
+    frequency_code: str
+    frequency_label: str
+    periods_per_year: int
+    lag_unit: str
+    requested_transform: TransformType
+    effective_transform: TransformType
+    normalization: bool
+    transform_window: int | None
+    warmup_periods: int
+    fetch_start_date: date
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RelationshipSeriesTransformOutput:
+    visible_observations: list[ObservationPoint]
+    transformed_observations: list[ObservationPoint]
+    basis: str
+    units: str
+    applied_transform_window: int | None
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RelationshipMetricsResult:
+    same_period_correlation: float | None
+    regression_slope: float | None
+    best_lag: int | None
+    best_lag_correlation: float | None
+    best_lag_samples: int
+
+
+@dataclass(frozen=True)
 class HistoricalSummaryResult:
     context: HistoricalSeriesContext | None
     metrics: list[DerivedMetric]

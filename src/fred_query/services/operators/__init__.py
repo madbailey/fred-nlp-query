@@ -1,6 +1,9 @@
 from fred_query.services.operators.models import (
     HistoricalSummaryResult,
     ResolvedSeriesResult,
+    RelationshipMetricsResult,
+    RelationshipSeriesTransformOutput,
+    RelationshipTransformPlan,
     SingleSeriesTransformPlan,
     SingleSeriesTransformOutput,
 )
@@ -8,6 +11,7 @@ from fred_query.services.operators.presentation import BuildChartOp, RenderAnswe
 from fred_query.services.operators.series import (
     AlignSeriesOp,
     ApplyTransformOp,
+    ComputeRelationshipMetricsOp,
     ComputeSeriesMetricsOp,
     FetchRecessionPeriodsOp,
     FetchSeriesObservationsOp,
@@ -19,6 +23,7 @@ __all__ = [
     "AlignSeriesOp",
     "ApplyTransformOp",
     "BuildChartOp",
+    "ComputeRelationshipMetricsOp",
     "ComputeSeriesMetricsOp",
     "FetchRecessionPeriodsOp",
     "FetchSeriesObservationsOp",
@@ -27,6 +32,9 @@ __all__ = [
     "RenderAnswerOp",
     "ResolvedSeriesResult",
     "ResolveSeriesOp",
+    "RelationshipMetricsResult",
+    "RelationshipSeriesTransformOutput",
+    "RelationshipTransformPlan",
     "SingleSeriesTransformPlan",
     "SingleSeriesTransformOutput",
 ]
