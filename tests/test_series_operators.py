@@ -4,10 +4,11 @@ from datetime import date, timedelta
 import unittest
 
 from fred_query.schemas.analysis import ObservationPoint, SeriesAnalysis
-from fred_query.schemas.intent import QueryIntent, TaskType, TransformType
+from fred_query.schemas.intent import ComparisonMode, QueryIntent, TaskType, TransformType
 from fred_query.schemas.resolved_series import ResolvedSeries, SeriesMetadata
 from fred_query.services.operators import (
     ApplyTransformOp,
+    ComputeRelationshipMetricsOp,
     FetchSeriesObservationsOp,
     RankSeriesOp,
     ResolveSeriesOp,
@@ -89,6 +90,20 @@ class SeriesOperatorsTest(unittest.TestCase):
 
         self.assertEqual([point.date for point in observations], [date(2024, 1, 1), date(2024, 2, 1)])
 
+    def test_resolve_series_op_supports_relationship_targets(self) -> None:
+        resolver = ResolverService(_OperatorFREDClient())
+        op = ResolveSeriesOp(resolver)
+        intent = QueryIntent(
+            task_type=TaskType.RELATIONSHIP_ANALYSIS,
+            comparison_mode=ComparisonMode.RELATIONSHIP,
+            series_ids=["UNRATE", "SP500"],
+        )
+
+        result = op.for_relationship_target(intent, 1)
+
+        self.assertEqual(result.metadata.series_id, "SP500")
+        self.assertEqual(result.resolved_series.series_id, "SP500")
+
     def test_apply_transform_op_plans_warmup_and_applies_visible_transform(self) -> None:
         transform_service = TransformService()
         op = ApplyTransformOp(transform_service)
@@ -120,6 +135,55 @@ class SeriesOperatorsTest(unittest.TestCase):
         self.assertEqual(plan.fetch_start_date, date(2024, 1, 2))
         self.assertEqual(result.analysis_basis, "30-observation rolling annualized volatility")
         self.assertEqual(result.transformed_observations[0].date, date(2024, 2, 1))
+
+    def test_apply_transform_op_plans_relationship_basis(self) -> None:
+        transform_service = TransformService()
+        op = ApplyTransformOp(transform_service)
+        client = _OperatorFREDClient()
+        metadata_items = [
+            client.get_series_metadata("SP500"),
+            client.get_series_metadata("UNRATE"),
+        ]
+        intent = QueryIntent(
+            task_type=TaskType.RELATIONSHIP_ANALYSIS,
+            comparison_mode=ComparisonMode.RELATIONSHIP,
+            transform=TransformType.NORMALIZED_INDEX,
+            normalization=True,
+        )
+
+        plan = op.plan_relationship(
+            intent,
+            metadata_items=metadata_items,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 2, 15),
+        )
+        output = op.apply_relationship_basis(
+            client.get_series_observations("SP500", start_date=plan.fetch_start_date, end_date=plan.end_date),
+            metadata=metadata_items[0],
+            plan=plan,
+        )
+
+        self.assertEqual(plan.frequency_code, "m")
+        self.assertEqual(plan.frequency_label, "Monthly")
+        self.assertEqual(output.basis, "Normalized index")
+        self.assertEqual(output.units, "Index (Base = 100)")
+
+    def test_compute_relationship_metrics_op_returns_pairwise_statistics(self) -> None:
+        op = ComputeRelationshipMetricsOp(TransformService())
+        first = [
+            ObservationPoint(date=date(2024, month, 1), value=float(month))
+            for month in range(1, 13)
+        ]
+        second = [
+            ObservationPoint(date=date(2024, month, 1), value=float(month * 2))
+            for month in range(1, 13)
+        ]
+
+        metrics = op.compute(first, second, periods_per_year=12)
+
+        self.assertAlmostEqual(metrics.same_period_correlation or 0.0, 1.0, places=6)
+        self.assertAlmostEqual(metrics.regression_slope or 0.0, 2.0, places=6)
+        self.assertIsNotNone(metrics.best_lag)
 
     def test_rank_series_op_orders_by_latest_value(self) -> None:
         first = SeriesAnalysis(

@@ -10,6 +10,9 @@ from fred_query.services.fred_client import FREDClient
 from fred_query.services.operators.models import (
     HistoricalSummaryResult,
     ResolvedSeriesResult,
+    RelationshipMetricsResult,
+    RelationshipSeriesTransformOutput,
+    RelationshipTransformPlan,
     SingleSeriesTransformPlan,
     SingleSeriesTransformOutput,
 )
@@ -28,6 +31,47 @@ class ResolveSeriesOp:
             search_text=search_text,
             geography=intent.geographies[0].name if intent.geographies else "Unspecified",
             indicator=intent.indicators[0] if intent.indicators else "unknown_indicator",
+        )
+        return ResolvedSeriesResult(
+            resolved_series=resolved_series,
+            metadata=metadata,
+            search_match=search_match,
+        )
+
+    @staticmethod
+    def relationship_indicator_for_index(intent: QueryIntent, index: int, fallback: str) -> str:
+        if index < len(intent.indicators) and intent.indicators[index]:
+            return intent.indicators[index]
+        return fallback
+
+    @staticmethod
+    def relationship_search_text_for_index(intent: QueryIntent, index: int) -> str | None:
+        if index < len(intent.search_texts) and intent.search_texts[index]:
+            return intent.search_texts[index]
+        if len(intent.search_texts) == 1:
+            return intent.search_texts[0]
+        if index < len(intent.indicators) and intent.indicators[index]:
+            return intent.indicators[index]
+        return None
+
+    @staticmethod
+    def relationship_series_id_for_index(intent: QueryIntent, index: int) -> str | None:
+        if index < len(intent.series_ids) and intent.series_ids[index]:
+            return intent.series_ids[index]
+        return None
+
+    def for_relationship_target(self, intent: QueryIntent, index: int) -> ResolvedSeriesResult:
+        search_text = self.relationship_search_text_for_index(intent, index)
+        resolved_series, metadata, search_match = self.resolver_service.resolve_series(
+            explicit_series_id=self.relationship_series_id_for_index(intent, index),
+            search_text=search_text,
+            geography="Unspecified",
+            indicator=self.relationship_indicator_for_index(
+                intent,
+                index,
+                search_text or "unknown_indicator",
+            ),
+            no_target_message="I need two resolvable series targets before I can run relationship analysis.",
         )
         return ResolvedSeriesResult(
             resolved_series=resolved_series,
@@ -176,6 +220,103 @@ class ApplyTransformOp:
             compound_annual_growth_rate_pct=compound_annual_growth_rate,
         )
 
+    def plan_relationship(
+        self,
+        intent: QueryIntent,
+        *,
+        metadata_items: list[SeriesMetadata],
+        start_date: date,
+        end_date: date | None,
+    ) -> RelationshipTransformPlan:
+        frequency_code, frequency_label, periods_per_year, lag_unit = (
+            self.transform_service.choose_relationship_frequency(
+                [metadata.frequency for metadata in metadata_items]
+            )
+        )
+        effective_transform = (
+            TransformType.LEVEL if intent.transform == TransformType.NORMALIZED_INDEX else intent.transform
+        )
+        transform_window, transform_warnings = self.transform_service.resolve_transform_window(
+            transform=effective_transform,
+            frequency=metadata_items[0].frequency,
+            requested_window=intent.transform_window,
+        )
+        warmup_periods = self.transform_service.transform_warmup_periods(
+            transform=effective_transform,
+            periods_per_year=periods_per_year,
+            window=transform_window,
+        )
+        fetch_start_date = self.transform_service.subtract_periods(
+            start_date,
+            periods=warmup_periods,
+            frequency=frequency_code,
+        )
+        return RelationshipTransformPlan(
+            start_date=start_date,
+            end_date=end_date,
+            frequency_code=frequency_code,
+            frequency_label=frequency_label,
+            periods_per_year=periods_per_year,
+            lag_unit=lag_unit,
+            requested_transform=intent.transform,
+            effective_transform=effective_transform,
+            normalization=intent.normalization,
+            transform_window=transform_window,
+            warmup_periods=warmup_periods,
+            fetch_start_date=fetch_start_date,
+            warnings=transform_warnings,
+        )
+
+    def apply_relationship_basis(
+        self,
+        observations: list[ObservationPoint],
+        *,
+        metadata: SeriesMetadata,
+        plan: RelationshipTransformPlan,
+    ) -> RelationshipSeriesTransformOutput:
+        visible_observations = self.transform_service.filter_observations_by_date(
+            observations,
+            start_date=plan.start_date,
+            end_date=plan.end_date,
+        )
+        if not visible_observations:
+            raise ValueError(f"No observations returned for {metadata.series_id} in the requested display window.")
+
+        basis_source_observations = observations if plan.warmup_periods > 0 else visible_observations
+        transformed, basis, units, applied_window, basis_warnings = self.transform_service.build_relationship_basis(
+            basis_source_observations,
+            title=metadata.title,
+            units=metadata.units,
+            frequency=metadata.frequency,
+            periods_per_year=plan.periods_per_year,
+            transform=plan.requested_transform,
+            normalization=plan.normalization,
+            requested_window=plan.transform_window,
+        )
+        if not transformed:
+            raise ValueError(
+                f"I could not derive a stable comparison basis for {metadata.series_id} over the requested date range."
+            )
+
+        transformed = self.transform_service.filter_observations_by_date(
+            transformed,
+            start_date=plan.start_date,
+            end_date=plan.end_date,
+        )
+        if not transformed:
+            raise ValueError(
+                f"I could not derive {basis.lower()} for {metadata.series_id} over the requested display window."
+            )
+
+        return RelationshipSeriesTransformOutput(
+            visible_observations=visible_observations,
+            transformed_observations=transformed,
+            basis=basis,
+            units=units,
+            applied_transform_window=applied_window,
+            warnings=basis_warnings,
+        )
+
 
 class AlignSeriesOp:
     def __init__(self, transform_service: TransformService) -> None:
@@ -187,6 +328,36 @@ class AlignSeriesOp:
         second: list[ObservationPoint],
     ) -> tuple[list[ObservationPoint], list[ObservationPoint]]:
         return self.transform_service.align_on_dates(first, second)
+
+    def standardize(self, observations: list[ObservationPoint]) -> list[ObservationPoint]:
+        return self.transform_service.standardize(observations)
+
+
+class ComputeRelationshipMetricsOp:
+    def __init__(self, transform_service: TransformService) -> None:
+        self.transform_service = transform_service
+
+    def compute(
+        self,
+        first: list[ObservationPoint],
+        second: list[ObservationPoint],
+        *,
+        periods_per_year: int,
+    ) -> RelationshipMetricsResult:
+        same_period_correlation = self.transform_service.calculate_correlation(first, second)
+        regression_slope = self.transform_service.calculate_regression_slope(first, second)
+        best_lag, best_lag_correlation, best_lag_samples = self.transform_service.calculate_best_lag_correlation(
+            first,
+            second,
+            max_lag=self.transform_service.relationship_max_lag(periods_per_year),
+        )
+        return RelationshipMetricsResult(
+            same_period_correlation=same_period_correlation,
+            regression_slope=regression_slope,
+            best_lag=best_lag,
+            best_lag_correlation=best_lag_correlation,
+            best_lag_samples=best_lag_samples,
+        )
 
 
 class ComputeSeriesMetricsOp:
