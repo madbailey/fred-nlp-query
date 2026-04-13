@@ -1,0 +1,98 @@
+[
+  {
+    "case_id": "plain_inflation_prefers_cpi",
+    "metadata_series_id": "CPIAUCSL",
+    "resolved": {
+      "frequency": "Monthly",
+      "geography": "United States",
+      "indicator": "inflation",
+      "resolution_reason": "Resolved the query via reranked FRED search candidates. Best match from the top 3 hits was CPIAUCSL.",
+      "score": 0.6,
+      "series_id": "CPIAUCSL",
+      "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+      "title": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+      "units": "Index 1982-1984=100"
+    },
+    "search_match_series_id": "CPIAUCSL"
+  },
+  {
+    "case_id": "real_gdp_prefers_level_series",
+    "metadata_series_id": "GDPC1",
+    "resolved": {
+      "frequency": "Quarterly",
+      "geography": "United States",
+      "indicator": "real gdp",
+      "resolution_reason": "Resolved the query via reranked FRED search candidates. Best match from the top 3 hits was GDPC1.",
+      "score": 0.92,
+      "seasonal_adjustment": "SAAR",
+      "series_id": "GDPC1",
+      "source_url": "https://fred.stlouisfed.org/series/GDPC1",
+      "title": "Real Gross Domestic Product",
+      "units": "Billions of Chained 2017 Dollars"
+    },
+    "search_match_series_id": "GDPC1"
+  },
+  {
+    "case_id": "state_geography_signal_prefers_texas_unemployment",
+    "metadata_series_id": "TXURN",
+    "resolved": {
+      "frequency": "Monthly",
+      "geography": "Texas",
+      "indicator": "unemployment rate",
+      "resolution_reason": "Resolved the query via reranked FRED search candidates. Best match from the top 2 hits was TXURN.",
+      "score": 0.92,
+      "seasonal_adjustment": "Seasonally Adjusted",
+      "series_id": "TXURN",
+      "source_url": "https://fred.stlouisfed.org/series/TXURN",
+      "title": "Unemployment Rate in Texas",
+      "units": "Percent"
+    },
+    "search_match_series_id": "TXURN"
+  },
+  {
+    "case_id": "explicit_series_id_bypasses_search",
+    "metadata_series_id": "UNRATE",
+    "resolved": {
+      "frequency": "Monthly",
+      "geography": "United States",
+      "indicator": "unemployment rate",
+      "resolution_reason": "Used explicit series ID UNRATE.",
+      "score": 1.0,
+      "seasonal_adjustment": "Seasonally Adjusted",
+      "series_id": "UNRATE",
+      "source_url": "https://fred.stlouisfed.org/series/UNRATE",
+      "title": "Unemployment Rate",
+      "units": "Percent"
+    },
+    "search_match_series_id": null
+  },
+  {
+    "case_id": "state_gdp_pattern_resolution",
+    "resolved": {
+      "frequency": "Annual",
+      "geography": "California",
+      "indicator": "real_gdp",
+      "resolution_reason": "Resolved CA to state code CA and applied the FRED real GDP series pattern 'CARGSP'.",
+      "score": 1.0,
+      "series_id": "CARGSP",
+      "source_url": "https://fred.stlouisfed.org/series/CARGSP",
+      "title": "Real Gross Domestic Product: California",
+      "units": "Millions of Chained 2017 Dollars"
+    }
+  },
+  {
+    "case_id": "state_indicator_pattern_resolution",
+    "resolved": {
+      "frequency": "Monthly",
+      "geography": "California",
+      "indicator": "unemployment_rate",
+      "resolution_reason": "Resolved California to state code CA and applied the FRED series pattern 'CAUR' for unemployment rate.",
+      "score": 1.0,
+      "seasonal_adjustment": "Seasonally Adjusted",
+      "series_id": "CAUR",
+      "source_url": "https://fred.stlouisfed.org/series/CAUR",
+      "title": "Unemployment Rate in California",
+      "units": "Percent"
+    }
+  }
+]

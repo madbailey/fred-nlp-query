@@ -1,0 +1,248 @@
+[
+  {
+    "case_id": "state_gdp_normalized_index",
+    "intent": {
+      "clarification_needed": false,
+      "comparison_mode": "state_vs_state",
+      "geographies": [
+        {
+          "geography_type": "state",
+          "name": "California"
+        },
+        {
+          "geography_type": "state",
+          "name": "Texas"
+        }
+      ],
+      "indicators": [
+        "real_gdp"
+      ],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": true,
+      "original_query": "Compare California and Texas GDP since 2019 as an index",
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [
+          "California",
+          "Texas"
+        ],
+        "operators": [
+          "compare"
+        ],
+        "output_mode": "time_series",
+        "subjects": [
+          "real_gdp"
+        ],
+        "time_scope": {
+          "kind": "range",
+          "start_date": "2019-01-01"
+        }
+      },
+      "search_texts": [],
+      "series_ids": [],
+      "sort_descending": true,
+      "start_date": "2019-01-01",
+      "task_type": "state_gdp_comparison",
+      "transform": "normalized_index"
+    },
+    "query": "Compare California and Texas GDP since 2019 as an index"
+  },
+  {
+    "case_id": "state_gdp_missing_peer_clarifies",
+    "intent": {
+      "clarification_needed": true,
+      "clarification_question": "Which two US states do you want to compare for GDP?",
+      "comparison_mode": "none",
+      "geographies": [
+        {
+          "geography_type": "state",
+          "name": "California"
+        }
+      ],
+      "indicators": [],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "original_query": "Compare California GDP",
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [
+          "California"
+        ],
+        "operators": [
+          "compare"
+        ],
+        "output_mode": "time_series",
+        "subjects": [],
+        "time_scope": {
+          "kind": "unspecified"
+        }
+      },
+      "search_texts": [],
+      "series_ids": [],
+      "sort_descending": true,
+      "task_type": "multi_series_comparison",
+      "transform": "level"
+    },
+    "query": "Compare California GDP"
+  },
+  {
+    "case_id": "relationship_defaults_target_index",
+    "intent": {
+      "clarification_needed": true,
+      "clarification_question": "Which inflation measure do you mean?",
+      "clarification_target_index": 0,
+      "comparison_mode": "none",
+      "geographies": [],
+      "indicators": [],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "original_query": "What is the relationship between Brent crude and inflation?",
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [],
+        "operators": [
+          "analyze_relationship"
+        ],
+        "output_mode": "relationship",
+        "subjects": [
+          "brent crude oil price",
+          "inflation united states"
+        ],
+        "time_scope": {
+          "kind": "unspecified"
+        }
+      },
+      "search_texts": [
+        "brent crude oil price",
+        "inflation united states"
+      ],
+      "series_ids": [],
+      "sort_descending": true,
+      "task_type": "relationship_analysis",
+      "transform": "level"
+    },
+    "query": "What is the relationship between Brent crude and inflation?"
+  },
+  {
+    "case_id": "point_in_time_promotes_cross_section",
+    "intent": {
+      "clarification_needed": false,
+      "comparison_mode": "none",
+      "cross_section_scope": "single_series",
+      "geographies": [],
+      "indicators": [
+        "inflation"
+      ],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "observation_date": "2023-01-01",
+      "original_query": "What was inflation in January 2023?",
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [],
+        "operators": [
+          "lookup"
+        ],
+        "output_mode": "cross_section",
+        "subjects": [
+          "inflation"
+        ],
+        "time_scope": {
+          "kind": "point_in_time",
+          "observation_date": "2023-01-01"
+        }
+      },
+      "search_text": "inflation",
+      "search_texts": [],
+      "series_ids": [],
+      "sort_descending": true,
+      "task_type": "cross_section",
+      "transform": "level"
+    },
+    "query": "What was inflation in January 2023?"
+  },
+  {
+    "case_id": "cross_section_state_scope_default",
+    "intent": {
+      "clarification_needed": false,
+      "comparison_mode": "none",
+      "cross_section_scope": "states",
+      "geographies": [],
+      "indicators": [
+        "unemployment rate"
+      ],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "original_query": "Which state has the lowest unemployment rate?",
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [],
+        "operators": [
+          "rank"
+        ],
+        "output_mode": "cross_section",
+        "subjects": [
+          "unemployment rate"
+        ],
+        "time_scope": {
+          "kind": "latest"
+        }
+      },
+      "search_text": "unemployment rate",
+      "search_texts": [],
+      "series_ids": [],
+      "sort_descending": false,
+      "task_type": "cross_section",
+      "transform": "level"
+    },
+    "query": "Which state has the lowest unemployment rate?"
+  },
+  {
+    "case_id": "rolling_volatility_disables_normalization",
+    "intent": {
+      "clarification_needed": false,
+      "comparison_mode": "none",
+      "geographies": [],
+      "indicators": [
+        "s&p 500"
+      ],
+      "needs_chart": true,
+      "needs_latest_value": true,
+      "needs_revision_analysis": false,
+      "normalization": false,
+      "original_query": "How volatile has the S&P 500 been over the last 30 days?",
+      "parser_notes": [],
+      "query_plan": {
+        "geographies": [],
+        "operators": [
+          "lookup"
+        ],
+        "output_mode": "time_series",
+        "subjects": [
+          "s&p 500"
+        ],
+        "time_scope": {
+          "kind": "unspecified"
+        }
+      },
+      "search_text": "s&p 500",
+      "search_texts": [],
+      "series_ids": [],
+      "sort_descending": true,
+      "task_type": "single_series_lookup",
+      "transform": "rolling_volatility",
+      "transform_window": 30
+    },
+    "query": "How volatile has the S&P 500 been over the last 30 days?"
+  }
+]
